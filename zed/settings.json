@@ -1,0 +1,132 @@
+// Zed settings
+{
+  "base_keymap": "JetBrains",
+
+  "ui_font_size": 18,
+  "buffer_font_size": 15,
+
+  "icon_theme": "JetBrains New UI Icons (Dark)",
+
+  "project_panel": {
+    "dock": "left",
+    "button": true,
+    "default_width": 300,
+    "starts_open": true,
+    "entry_spacing": "comfortable",
+    "file_icons": true,
+    "folder_icons": true,
+    "git_status": true,
+    "show_diagnostics": "all",
+    "auto_reveal_entries": true,
+    "sticky_scroll": true
+  },
+
+  "git_panel": {
+    "dock": "left",
+    "button": true,
+    "default_width": 360,
+    "status_style": "icon",
+    "sort_by": "path",
+    "group_by": "status"
+  },
+
+  "outline_panel": {
+    "dock": "right",
+    "button": true,
+    "default_width": 300,
+    "file_icons": true,
+    "folder_icons": true,
+    "git_status": true,
+    "auto_reveal_entries": true
+  },
+
+  "agent": {
+    "dock": "right",
+    "button": true,
+    "default_width": 500
+  },
+
+  "terminal": {
+    "dock": "bottom"
+  },
+
+  "debugger": {
+    "dock": "bottom",
+    "button": true
+  },
+
+  "agent_servers": {
+    "opencode": {
+      "default_config_options": {
+        "model": "openai/gpt-5.6-sol-fast",
+        "effort": "medium",
+        "mode": "plan"
+      },
+      "type": "registry"
+    }
+  },
+
+  "wsl_connections": [
+    {
+      "distro_name": "Ubuntu",
+      "user": null,
+      "projects": [
+        {
+          "paths": [
+            "/home/nwassom"
+          ]
+        },
+        {
+          "paths": [
+            "/home/nwassom/Projects"
+          ]
+        },
+        {
+          "paths": [
+            "/home/nwassom/Projects/apartment_map"
+          ]
+        },
+        {
+          "paths": [
+            "/home/nwassom/Projects/bullet-bank/./"
+          ]
+        },
+        {
+          "paths": [
+            "/home/nwassom/Projects/homelab"
+          ]
+        }
+      ]
+    }
+  ],
+
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+    "anthropic_retention": false
+  },
+
+  "session": {
+    "trust_all_worktrees": true
+  },
+
+  "vim_mode": false,
+
+  "minimap": {
+    "show": "never"
+  },
+
+  "autosave": {
+    "after_delay": {
+      "milliseconds": 1000
+    }
+  },
+
+  "soft_wrap": "editor_width",
+
+  "theme": {
+    "mode": "system",
+    "light": "One Light",
+    "dark": "JetBrains New UI"
+  }
+}
