@@ -63,7 +63,7 @@ Personal development environment and machine configuration.
 
 ```bash
 
-git clone git@github.com:USERNAME/dotfiles.git ~/dotfiles
+git clone git@github.com:nwassom/dotfiles.git ~/dotfiles
 
 cd ~/dotfiles
 
