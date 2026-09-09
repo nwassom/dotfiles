@@ -1,0 +1,229 @@
+
+"$schema" = "https://starship.rs/config-schema.json"
+
+
+
+# ===========================================================
+
+# STARSHIP — MINIMAL NORD
+
+# ===========================================================
+
+
+
+add_newline = false
+
+palette = "nord"
+
+
+
+# username[@host] directory (git-branch) $
+
+format = "$username$hostname$directory$git_branch$character"
+
+
+
+
+
+# -----------------------------------------------------------
+
+# COLORS
+
+# -----------------------------------------------------------
+
+
+
+[palettes.nord]
+
+cyan   = "#69DCEB"
+
+blue   = "#78B9FF"
+
+purple = "#D79AF0"
+
+green  = "#A8E38D"
+
+red    = "#FF7A85"
+
+
+
+
+
+# -----------------------------------------------------------
+
+# USERNAME
+
+# -----------------------------------------------------------
+
+
+
+[username]
+
+show_always = true
+
+
+
+style_user = "bold cyan"
+
+style_root = "bold red"
+
+
+
+format = "[$user]($style)"
+
+
+
+
+
+# -----------------------------------------------------------
+
+# HOSTNAME
+
+#
+
+# Only appears over SSH.
+
+#
+
+# Local:
+
+# nwassom ~/src $
+
+#
+
+# SSH:
+
+# nwassom@pve-01 ~/src $
+
+# -----------------------------------------------------------
+
+
+
+[hostname]
+
+ssh_only = true
+
+
+
+# Don't strip domain portions from an FQDN.
+
+trim_at = ""
+
+
+
+style = "bold cyan"
+
+
+
+format = "[@$hostname]($style)"
+
+
+
+
+
+# -----------------------------------------------------------
+
+# DIRECTORY
+
+# -----------------------------------------------------------
+
+
+
+[directory]
+
+style = "bold blue"
+
+
+
+# Leading space separates it from username/hostname.
+
+format = " [$path]($style)"
+
+
+
+home_symbol = "~"
+
+
+
+# Don't let enormous paths dominate the terminal.
+
+truncation_length = 3
+
+truncation_symbol = "…/"
+
+
+
+truncate_to_repo = false
+
+read_only = ""
+
+
+
+
+
+# -----------------------------------------------------------
+
+# GIT BRANCH
+
+#
+
+# Only appears inside a Git repository.
+
+# -----------------------------------------------------------
+
+
+
+[git_branch]
+
+symbol = ""
+
+
+
+style = "purple"
+
+
+
+# Exactly:
+
+# (develop)
+
+format = " [\\($branch\\)]($style)"
+
+
+
+truncation_length = 32
+
+truncation_symbol = "…"
+
+
+
+
+
+# -----------------------------------------------------------
+
+# PROMPT
+
+# -----------------------------------------------------------
+
+
+
+[character]
+
+
+
+# Literal $
+
+success_symbol = " [\\$](bold green)"
+
+
+
+# Red $ means previous command failed.
+
+error_symbol = " [\\$](bold red)"
+
+
+
+# Same appearance if shell vi mode is ever enabled.
+
+vimcmd_symbol = " [\\$](bold blue)"
+
