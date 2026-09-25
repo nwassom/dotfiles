@@ -1,229 +1,48 @@
-
 "$schema" = "https://starship.rs/config-schema.json"
 
-
-
-# ===========================================================
-
-# STARSHIP — MINIMAL NORD
-
-# ===========================================================
-
-
-
 add_newline = false
-
 palette = "nord"
 
-
-
-# username[@host] directory (git-branch) $
-
-format = "$username$hostname$directory$git_branch$character"
-
-
-
-
-
-# -----------------------------------------------------------
-
-# COLORS
-
-# -----------------------------------------------------------
-
-
-
-[palettes.nord]
-
-cyan   = "#69DCEB"
-
-blue   = "#78B9FF"
-
-purple = "#D79AF0"
-
-green  = "#A8E38D"
-
-red    = "#FF7A85"
-
-
-
-
-
-# -----------------------------------------------------------
-
-# USERNAME
-
-# -----------------------------------------------------------
-
-
+format = '$username$hostname $directory$git_branch $character'
 
 [username]
-
 show_always = true
-
-
-
-style_user = "bold cyan"
-
-style_root = "bold red"
-
-
-
-format = "[$user]($style)"
-
-
-
-
-
-# -----------------------------------------------------------
-
-# HOSTNAME
-
-#
-
-# Only appears over SSH.
-
-#
-
-# Local:
-
-# nwassom ~/src $
-
-#
-
-# SSH:
-
-# nwassom@pve-01 ~/src $
-
-# -----------------------------------------------------------
-
-
+format = '[$user](bold nord8)'
 
 [hostname]
-
 ssh_only = true
-
-
-
-# Don't strip domain portions from an FQDN.
-
-trim_at = ""
-
-
-
-style = "bold cyan"
-
-
-
-format = "[@$hostname]($style)"
-
-
-
-
-
-# -----------------------------------------------------------
-
-# DIRECTORY
-
-# -----------------------------------------------------------
-
-
+ssh_symbol = ''
+format = '[@$hostname](bold nord9)'
+trim_at = '.'
 
 [directory]
-
-style = "bold blue"
-
-
-
-# Leading space separates it from username/hostname.
-
-format = " [$path]($style)"
-
-
-
-home_symbol = "~"
-
-
-
-# Don't let enormous paths dominate the terminal.
-
+format = '[$path](bold nord4)'
 truncation_length = 3
-
-truncation_symbol = "…/"
-
-
-
 truncate_to_repo = false
 
-read_only = ""
-
-
-
-
-
-# -----------------------------------------------------------
-
-# GIT BRANCH
-
-#
-
-# Only appears inside a Git repository.
-
-# -----------------------------------------------------------
-
-
-
 [git_branch]
-
-symbol = ""
-
-
-
-style = "purple"
-
-
-
-# Exactly:
-
-# (develop)
-
-format = " [\\($branch\\)]($style)"
-
-
-
-truncation_length = 32
-
-truncation_symbol = "…"
-
-
-
-
-
-# -----------------------------------------------------------
-
-# PROMPT
-
-# -----------------------------------------------------------
-
-
+symbol = ''
+format = ' [\($branch\)](bold nord14)'
 
 [character]
+success_symbol = '[\$](bold nord8)'
+error_symbol = '[\$](bold nord11)'
+vimcmd_symbol = '[\$](bold nord14)'
 
-
-
-# Literal $
-
-success_symbol = " [\\$](bold green)"
-
-
-
-# Red $ means previous command failed.
-
-error_symbol = " [\\$](bold red)"
-
-
-
-# Same appearance if shell vi mode is ever enabled.
-
-vimcmd_symbol = " [\\$](bold blue)"
-
+[palettes.nord]
+nord0  = "#2E3440"
+nord1  = "#3B4252"
+nord2  = "#434C5E"
+nord3  = "#4C566A"
+nord4  = "#D8DEE9"
+nord5  = "#E5E9F0"
+nord6  = "#ECEFF4"
+nord7  = "#8FBCBB"
+nord8  = "#88C0D0"
+nord9  = "#81A1C1"
+nord10 = "#5E81AC"
+nord11 = "#BF616A"
+nord12 = "#D08770"
+nord13 = "#EBCB8B"
+nord14 = "#A3BE8C"
+nord15 = "#B48EAD"

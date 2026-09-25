@@ -1,0 +1,234 @@
+# ===========================================================
+# GHOSTTY — WINDOWS + WSL UBUNTU
+# Modern Vibrant Nord
+# ===========================================================
+#
+# Reload config:
+# Ctrl+Shift+,
+#
+# Open config:
+# Ctrl+,
+# ===========================================================
+
+# Base size in points. Windows/Ghostty scales this for the
+# DPI of whichever monitor the window is currently on.
+font-size = 12.5
+
+# New windows/tabs should start from our configured font size
+# rather than accidentally inheriting a manually zoomed size.
+window-inherit-font-size = false
+
+# -----------------------------------------------------------
+# WSL / UBUNTU
+# -----------------------------------------------------------
+
+# Start the Ubuntu WSL distro, in the Linux home directory.
+#
+# We deliberately DO NOT specify bash/zsh/etc. here.
+# Ubuntu/WSL will launch whatever your Linux user's default
+# shell is configured to use.
+
+# Let Ghostty detect/integrate with the shell Ubuntu launches.
+shell-integration = detect
+
+# Don't inherit a Windows working directory when opening a new
+# Ghostty window.
+window-inherit-working-directory = false
+tab-inherit-working-directory = true
+split-inherit-working-directory = true
+
+
+# -----------------------------------------------------------
+# FONT
+# -----------------------------------------------------------
+
+font-family = "JetBrains Mono"
+font-family = "Symbols Nerd Font Mono"
+
+font-size = 12.5
+
+# Slightly roomier than stock without looking oversized.
+adjust-cell-height = 10%
+adjust-cell-width = 1%
+
+
+# -----------------------------------------------------------
+# WINDOW
+# -----------------------------------------------------------
+
+window-padding-x = 16
+window-padding-y = 12
+
+window-width = 120
+window-height = 32
+
+
+# -----------------------------------------------------------
+# TRANSPARENCY / ACRYLIC
+# -----------------------------------------------------------
+
+# I would use 0.74 here.
+#
+# 1.00 = solid
+# 0.90 = subtle
+# 0.80 = translucent
+# 0.74 = strong acrylic without destroying readability
+# 0.65 = very transparent
+background-opacity = 0.74
+
+# Windows Ghostty acrylic blur.
+#
+# Explicit intensity instead of "true" so the background behind
+# Ghostty is recognizable without becoming visually noisy.
+background-blur = 28
+
+# Also allow explicitly-painted background cells to participate
+# in transparency. This helps things such as tmux/neovim blend
+# more consistently.
+background-opacity-cells = true
+
+# Keep text readable against whatever happens to be behind
+# the acrylic window.
+minimum-contrast = 2.0
+
+
+# -----------------------------------------------------------
+# UNFOCUSED PANES
+# -----------------------------------------------------------
+
+# IMPORTANT:
+# This affects unfocused SPLITS inside Ghostty, not the entire
+# Ghostty window when you Alt+Tab away.
+#
+# It makes the active pane obvious without making the other
+# panes annoyingly dark.
+unfocused-split-opacity = 0.82
+unfocused-split-fill = #101821
+
+split-divider-color = #40556A
+
+
+# -----------------------------------------------------------
+# VIBRANT NORD
+# -----------------------------------------------------------
+
+# Deeper blue background than stock Nord.
+# Makes cyan/blue/green/yellow terminal colors stand out.
+background = #111A24
+
+# Bright cool white instead of Nord's dull gray-white.
+foreground = #EDF4FC
+
+
+# -----------------------------------------------------------
+# CURSOR
+# -----------------------------------------------------------
+
+cursor-color = #8BE9FD
+cursor-text = #111A24
+
+cursor-style = bar
+cursor-style-blink = true
+
+
+# -----------------------------------------------------------
+# SELECTION
+# -----------------------------------------------------------
+
+selection-background = #365B78
+selection-foreground = #FFFFFF
+
+
+# -----------------------------------------------------------
+# ANSI COLORS — NORMAL
+# -----------------------------------------------------------
+
+# Black
+palette = 0=#263341
+
+# Red
+palette = 1=#FF7A85
+
+# Green
+palette = 2=#A8E38D
+
+# Yellow
+palette = 3=#FFD580
+
+# Blue
+palette = 4=#78B9FF
+
+# Magenta
+palette = 5=#D79AF0
+
+# Cyan
+palette = 6=#69DCEB
+
+# White
+palette = 7=#E6EEF7
+
+
+# -----------------------------------------------------------
+# ANSI COLORS — BRIGHT
+# -----------------------------------------------------------
+
+# Bright black / gray
+palette = 8=#6F8195
+
+# Bright red
+palette = 9=#FF9099
+
+# Bright green
+palette = 10=#B9F59E
+
+# Bright yellow
+palette = 11=#FFE18E
+
+# Bright blue
+palette = 12=#91C9FF
+
+# Bright magenta
+palette = 13=#E6AEFF
+
+# Bright cyan
+palette = 14=#8AEAF4
+
+# Bright white
+palette = 15=#FFFFFF
+
+
+# Don't automatically replace bold text with ANSI bright variants.
+# Applications explicitly choosing bright colors still get the
+# bright palette above.
+bold-is-bright = false
+
+
+# -----------------------------------------------------------
+# TERMINAL
+# -----------------------------------------------------------
+
+scrollback-limit = 10000000
+
+confirm-close-surface = false
+
+
+# -----------------------------------------------------------
+# KEYBINDS
+# -----------------------------------------------------------
+
+# New Ubuntu tab
+keybind = ctrl+shift+t=new_tab
+
+# Close pane/tab
+keybind = ctrl+shift+w=close_surface
+
+# Split vertically / side-by-side
+keybind = ctrl+shift+backslash=new_split:right
+
+# Split horizontally
+keybind = ctrl+shift+minus=new_split:down
+
+# Toggle acrylic transparency / fully opaque.
+#
+# The Windows Ghostty fork supports this.
+keybind = ctrl+shift+o=toggle_background_opacity

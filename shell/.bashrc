@@ -118,14 +118,28 @@ fi
 export ANI_CLI_PLAYER="mpv"
 
 # Created by `pipx` on 2026-05-06 15:52:35
-export PATH="$PATH:/home/nwassom/.local/bin"
-export PATH=$PATH:/usr/local/go/bin
+export PATH="$PATH:$HOME/.local/bin"
+export PATH="$PATH:/usr/local/go/bin"
 
 # fnm
-FNM_PATH="/home/nwassom/.local/share/fnm"
+FNM_PATH="$HOME/.local/share/fnm"
 if [ -d "$FNM_PATH" ]; then
   export PATH="$FNM_PATH:$PATH"
   eval "$(fnm env --shell bash)"
 fi
 export PATH="$PATH:$HOME/go/bin"
-eval "$(starship init bash)"
+
+# ============================================================
+# DOTFILES SHARED CONFIG
+# ============================================================
+
+DOTFILES_ROOT="${DOTFILES_ROOT:-$HOME/dotfiles}"
+source "$DOTFILES_ROOT/shell/common.sh"
+
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init bash)"
+fi
+
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init bash)"
+fi
