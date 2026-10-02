@@ -16,20 +16,22 @@ fi
 exec > >(tee -a /dev/ttyS0) 2>&1
 
 modprobe qemu_fw_cfg
-if [[ ! -r /sys/firmware/qemu_fw_cfg/by_name/dotfiles-repo/raw || ! -r /sys/firmware/qemu_fw_cfg/by_name/dotfiles-ref/raw ]]; then
-    echo "QEMU did not provide the dotfiles repository and ref." >&2
+settings=/sys/firmware/qemu_fw_cfg/by_name/guest-settings/raw
+if [[ ! -r "$settings" ]]; then
+    echo "QEMU did not provide guest settings." >&2
     exit 1
 fi
-ARCH_DOTFILES_REPO=$(</sys/firmware/qemu_fw_cfg/by_name/dotfiles-repo/raw)
-ARCH_DOTFILES_REF=$(</sys/firmware/qemu_fw_cfg/by_name/dotfiles-ref/raw)
 if [[ ! -r /sys/firmware/qemu_fw_cfg/by_name/provision-arch-hyprland/raw ]]; then
     echo "QEMU did not provide the guest provisioner." >&2
     exit 1
 fi
-if [[ "$ARCH_DOTFILES_REPO" != "https://github.com/nwassom/dotfiles.git" || ! "$ARCH_DOTFILES_REF" =~ ^[A-Za-z0-9._/-]+$ || "$ARCH_DOTFILES_REF" == *..* ]]; then
-    echo "Invalid dotfiles repository or ref." >&2
-    exit 1
-fi
+source "$settings"
+ARCH_USER=${ARCH_QEMU_GUEST_USER:?Missing ARCH_QEMU_GUEST_USER}
+ARCH_HOSTNAME=${ARCH_QEMU_HOSTNAME:?Missing ARCH_QEMU_HOSTNAME}
+ARCH_TIMEZONE=${ARCH_QEMU_TIMEZONE:?Missing ARCH_QEMU_TIMEZONE}
+ARCH_DISK_GIB=${ARCH_QEMU_DISK_GIB:?Missing ARCH_QEMU_DISK_GIB}
+ARCH_DOTFILES_REF=${ARCH_QEMU_DOTFILES_REF:?Missing ARCH_QEMU_DOTFILES_REF}
+ARCH_HYPRLAND_SCALE=${ARCH_HYPRLAND_SCALE:?Missing ARCH_HYPRLAND_SCALE}
 
 if [[ ! "$ARCH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
     echo "Invalid ARCH_USER." >&2
@@ -93,8 +95,8 @@ arch-chroot /mnt /usr/bin/env \
     ARCH_USER="$ARCH_USER" \
     ARCH_HOSTNAME="$ARCH_HOSTNAME" \
     ARCH_TIMEZONE="$ARCH_TIMEZONE" \
-    ARCH_DOTFILES_REPO="$ARCH_DOTFILES_REPO" \
     ARCH_DOTFILES_REF="$ARCH_DOTFILES_REF" \
+    ARCH_HYPRLAND_SCALE="$ARCH_HYPRLAND_SCALE" \
     /bin/bash -e <<'CHROOT'
 set -euo pipefail
 
@@ -128,15 +130,14 @@ ExecStart=-/usr/bin/agetty --autologin $ARCH_USER --noclear %I xterm-256color
 EOF
 
 cat > "/home/$ARCH_USER/.bash_profile" <<'EOF'
-if [[ "$(tty 2>/dev/null)" == /dev/tty1 ]] && command -v Hyprland >/dev/null 2>&1; then
-    exec Hyprland
-fi
+[[ -f ~/.bashrc ]] && . ~/.bashrc
 EOF
 chown "$ARCH_USER:$ARCH_USER" "/home/$ARCH_USER/.bash_profile"
 
-printf '%s\n' "$ARCH_DOTFILES_REPO" > /etc/arch-hyprland-dotfiles-repo
+printf '%s\n' "https://github.com/nwassom/dotfiles.git" > /etc/arch-hyprland-dotfiles-repo
 printf '%s\n' "$ARCH_DOTFILES_REF" > /etc/arch-hyprland-dotfiles-ref
 printf '%s\n' "$ARCH_USER" > /etc/arch-hyprland-user
+printf '%s\n' "$ARCH_HYPRLAND_SCALE" > /etc/arch-hyprland-scale
 
 cat > /etc/systemd/system/arch-hyprland-provision.service <<'EOF'
 [Unit]

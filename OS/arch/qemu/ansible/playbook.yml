@@ -8,21 +8,17 @@
     target_home: "/home/{{ arch_user | default('nwassom') }}"
 
   tasks:
-    - name: Install Hyprland, Ghostty, and virtio-gpu diagnostics
+    - name: Install Hyprland, Ghostty, fonts, and the terminal fallback
       become: true
       ansible.builtin.package:
         name:
           - dbus
           - foot
           - ghostty
-          - glmark2
           - hyprland
           - mesa
           - mesa-utils
           - ttf-dejavu
-          - vulkan-tools
-          - vulkan-virtio
-          - wayland-utils
           - xorg-xwayland
         state: present
 
@@ -37,24 +33,27 @@
 
     - name: Install the minimal Hyprland config
       become: true
-      ansible.builtin.copy:
+      ansible.builtin.template:
         src: files/hyprland.conf
         dest: "{{ target_home }}/.config/hypr/hyprland.conf"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: "0644"
 
-    - name: Capture exact guest package versions
-      become: true
-      ansible.builtin.command: pacman -Q
-      register: guest_packages
-      changed_when: false
-
-    - name: Save the guest package lock
+    - name: Keep Hyprland manual at login
       become: true
       ansible.builtin.copy:
-        content: "{{ guest_packages.stdout }}\n"
-        dest: /etc/arch-hyprland-packages.lock
+        content: "[[ -f ~/.bashrc ]] && . ~/.bashrc\n"
+        dest: "{{ target_home }}/.bash_profile"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0644"
+
+    - name: Install the current boot-time reconfiguration helper
+      become: true
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../guest/provision-arch-hyprland.sh"
+        dest: /usr/local/bin/provision-arch-hyprland
         owner: root
         group: root
-        mode: "0644"
+        mode: "0755"

@@ -1,60 +1,53 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)]
-    [string]$DataRoot,
-
+    [Parameter(Mandatory)][string]$DataRoot,
+    [Parameter(Mandatory)][string]$VmName,
+    [Parameter(Mandatory)][string]$GuestSettingsFile,
     [switch]$Installer,
-
     [string]$BootstrapScript,
-
-    [string]$DotfilesRepoFile,
-
-    [string]$DotfilesRefFile,
-
-    [string]$GitHubTokenFile,
-
-    [ValidateRange(2, 16)]
-    [int]$Cpus = 8,
-
-    [ValidateRange(4096, 16384)]
-    [int]$MemoryMiB = 6144
+    [string]$ReconfigureFile,
+    [ValidateRange(2, 16)][int]$Cpus = 8,
+    [ValidateRange(4096, 16384)][int]$MemoryMiB = 6144,
+    [ValidateRange(1, 8)][int]$GPUHostMemoryGiB = 4,
+    [bool]$Fullscreen = $true
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $DataRoot = [System.IO.Path]::GetFullPath($DataRoot).TrimEnd('\')
-if ([System.IO.Path]::GetPathRoot($DataRoot).Substring(0, 1) -eq "C") {
-    throw "VM data must remain on a non-C: drive."
-}
-if ($DataRoot -match '\s') { throw "Choose a data path without spaces to keep QEMU arguments simple." }
-
 $runtime = Join-Path $DataRoot "runtime"
 $provisioner = Join-Path $PSScriptRoot "..\guest\provision-arch-hyprland.sh"
 $qemu = Get-ChildItem $runtime -Filter "qemu-system-x86_64w.exe" -Recurse | Select-Object -First 1
-if (-not $qemu) { throw "Run setup.ps1 first; WINQ-EMU was not found under $runtime." }
-if (-not (Test-Path $provisioner)) { throw "Missing guest provisioner: $provisioner" }
-if ($GitHubTokenFile -and -not (Test-Path $GitHubTokenFile)) { throw "GitHub token file not found: $GitHubTokenFile" }
+if (-not $qemu) { throw "Run host\install.ps1 first; WINQ-EMU was not found under $runtime." }
+if (-not (Test-Path $provisioner) -or -not (Test-Path $GuestSettingsFile)) { throw "Guest settings or provisioner file is missing." }
+if ($Installer -and -not (Test-Path $BootstrapScript)) { throw "Installer mode requires guest\install-arch.sh." }
 
-$disk = Join-Path $DataRoot "vm\arch.qcow2"
+$disk = Join-Path $DataRoot "vm\$($VmName).qcow2"
 $iso = Get-ChildItem (Join-Path $DataRoot "iso") -Filter "archlinux-*.iso" | Select-Object -First 1
 $logs = Join-Path $DataRoot "logs"
 $temp = Join-Path $DataRoot "tmp"
 foreach ($path in @($disk, $logs, $temp)) {
-    if (-not (Test-Path $path)) { throw "Missing setup path: $path. Run setup.ps1 first." }
+    if (-not (Test-Path $path)) { throw "Missing setup path: $path. Run host\install.ps1 first." }
 }
-if ($Installer -and -not $iso) { throw "The pinned Arch ISO is missing; run setup.ps1 first." }
-if ($Installer -and (-not (Test-Path $BootstrapScript) -or -not (Test-Path $DotfilesRepoFile) -or -not (Test-Path $DotfilesRefFile))) {
-    throw "Installer mode requires the bootstrap script and dotfiles repo/ref settings."
+if ($Installer -and -not $iso) { throw "The pinned Arch ISO is missing; run host\install.ps1 first." }
+if ($ReconfigureFile -and -not (Test-Path $ReconfigureFile)) { throw "The reconfigure marker is missing: $ReconfigureFile" }
+
+$running = Get-CimInstance Win32_Process -Filter "Name='qemu-system-x86_64w.exe'" |
+    Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($disk, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+    Select-Object -First 1
+if ($running) {
+    if ($ReconfigureFile) { throw "$VmName is already running; shut it down before reconfiguring." }
+    Write-Host "$VmName is already running (QEMU PID $($running.ProcessId))."
+    return
 }
 
-# The trial host OS stays usable; the defaults mirror the tested balanced profile.
 $arguments = @(
     "-machine", "q35,accel=whpx",
     "-cpu", "host",
     "-smp", "$Cpus",
     "-m", "${MemoryMiB}M",
-    "-device", "virtio-vga-gl,blob=on,hostmem=4G,venus=on",
+    "-device", "virtio-vga-gl,blob=on,hostmem=${GPUHostMemoryGiB}G",
     "-display", "sdl,gl=on,show-cursor=off,window-close=off",
     "-drive", "file=$disk,format=qcow2,if=virtio",
     "-device", "virtio-keyboard-pci",
@@ -67,18 +60,20 @@ $arguments = @(
     "-qmp", "unix:$(Join-Path $temp 'qmp.sock'),server=on,wait=off",
     "-rtc", "base=localtime,clock=host",
     "-no-reboot",
-    "-name", "ArchHyprland",
-    "-full-screen"
+    "-name", $VmName
 )
-$arguments += @("-fw_cfg", "name=provision-arch-hyprland,file=$provisioner")
-if ($GitHubTokenFile) { $arguments += @("-fw_cfg", "name=github-token,file=$GitHubTokenFile") }
+if ($Fullscreen) { $arguments += "-full-screen" }
+$arguments += @(
+    "-fw_cfg", "name=provision-arch-hyprland,file=$provisioner",
+    "-fw_cfg", "name=guest-settings,file=$GuestSettingsFile"
+)
+if ($ReconfigureFile) { $arguments += @("-fw_cfg", "name=provision-refresh,file=$ReconfigureFile") }
 
 if ($Installer) {
-    $arguments += @("-cdrom", $iso.FullName, "-boot", "order=d")
     $arguments += @(
-        "-fw_cfg", "name=install-arch,file=$BootstrapScript",
-        "-fw_cfg", "name=dotfiles-repo,file=$DotfilesRepoFile",
-        "-fw_cfg", "name=dotfiles-ref,file=$DotfilesRefFile"
+        "-cdrom", $iso.FullName,
+        "-boot", "order=d",
+        "-fw_cfg", "name=install-arch,file=$BootstrapScript"
     )
 }
 else {
@@ -88,8 +83,7 @@ else {
 $env:TEMP = $temp
 $env:TMP = $temp
 $env:TMPDIR = $temp
-
-Write-Host "Starting QEMU/WHPX. Guest files and logs: $DataRoot"
-Write-Host "Renderer: virtio-gpu + VirGL; Venus is enabled but not required."
-$process = Start-Process -FilePath $qemu.FullName -ArgumentList $arguments -WorkingDirectory $qemu.DirectoryName -PassThru
-Write-Host "QEMU PID: $($process.Id)"
+$commandLine = ($arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }) -join ' '
+Write-Host "Starting $VmName with WHPX and virtio-GPU/VirGL."
+$process = Start-Process -FilePath $qemu.FullName -ArgumentList $commandLine -WorkingDirectory $qemu.DirectoryName -PassThru
+Write-Host "$VmName QEMU PID: $($process.Id)"

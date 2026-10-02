@@ -1,68 +1,87 @@
-# Arch + Hyprland in QEMU/WHPX
+# Named Arch + Hyprland QEMU VM
 
-This provisions a minimal Arch guest in QEMU on Windows. On first boot, Arch
-clones this repository and runs its QEMU Ansible playbook locally. No
-WSL, SSH, or host-side Ansible is required.
+This creates a persistent Arch VM on Windows using QEMU/WHPX and virtio-GPU/VirGL.
+The first install runs Ansible once to install Hyprland, Ghostty, fonts, graphics
+support, and Foot as a fallback terminal. The VM boots to an Arch shell; run
+`Hyprland` when you want the graphical session.
 
-The guest uses the pinned WINQ-EMU runtime, an Arch Linux Archive snapshot, a
-QCOW2 disk, and QEMU virtio-GPU with VirGL. It installs Hyprland, Ghostty, Foot
-as a Wayland terminal fallback, fonts, Mesa, and graphics diagnostics; no dock,
-theme, or workstation stack.
+## Configure
 
-## Install
+Copy `.env.example` to `.env` at the repository root. The storage root and VM
+name determine the instance path, QEMU title, disk filename, and optional
+shortcut name:
 
-Requirements: Windows with Hypervisor Platform enabled, PowerShell, internet
-access, and a fixed NTFS/ReFS data drive other than C: with at least 25 GiB
-free. The selected path must not contain spaces. Check the Windows feature in
-elevated PowerShell with `Get-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform`;
-if disabled, enable it with `Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All`
-and reboot.
+```dotenv
+ARCH_QEMU_STORAGE_ROOT=C:\VMs
+ARCH_QEMU_VM_NAME=ArchHyprland
+ARCH_QEMU_SHORTCUT=desktop
+```
 
-Copy `.env.example` to `.env` at the repository root and set `ARCH_QEMU_DATA_ROOT`
-to your VM storage path. `ARCH_QEMU_DOTFILES_REF` defaults to `main`; set it to
-a branch, tag, or commit that is available on GitHub. The guest clones from
-GitHub, so push the revision you want to test before launching. For a private
-repository, set `ARCH_QEMU_GITHUB_TOKEN` to a fine-grained token restricted to
-this repository with the **Contents: read-only** permission. Leave it empty for
-a public repository.
+That stores the VM under `C:\VMs\ArchHyprland`. Shortcut choices are `desktop`,
+`start-menu`, or `none`. C: and paths with spaces are supported.
 
-From PowerShell at the repository root:
+The remaining settings tune CPU count, RAM, disk size, GPU host memory,
+fullscreen, guest username/timezone, dotfiles revision, and Hyprland display
+scale. The default scale is `1.5`, suitable as a starting point for 4K. Values
+are local to each device; `.env` is ignored by Git.
+
+## One-time install
+
+Requirements: Windows Hypervisor Platform enabled, firmware virtualization
+available to Windows, internet access, and a local NTFS/ReFS drive with 25 GiB
+free. From PowerShell at the repository root:
 
 ```powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-# Edit .env and set ARCH_QEMU_DATA_ROOT to a non-C: path, e.g. G:\ArchHyprlandVM
+notepad .env
 .\OS\arch\qemu\host\install.ps1
 ```
 
-For a private repo, create a fine-grained GitHub token limited to this repo and
-**Contents: read-only**, then put it in `.env`. The installer temporarily copies
-it to `ARCH_QEMU_DATA_ROOT\tmp\github-token` for QEMU to pass to the guest; remove
-that file after provisioning succeeds. The token is not stored in the guest repo.
+The installer downloads the pinned QEMU runtime and Arch ISO, creates the named
+QCOW2 disk, installs Arch, and provisions it on first boot. Confirm the initial
+disk format when prompted. Existing VM disks are preserved. After setup, use
+the generated shortcut; no PowerShell window is needed for routine launches.
 
-On first install, confirm the wipe of the newly-created VM disk. Keep the QEMU
-window open while Arch boots, clones the selected revision, and runs Ansible;
-Hyprland starts after provisioning. Re-running the command starts the VM.
+## Use and reconfigure
 
-The guest autologs into Hyprland and opens Foot. Use `Super+Return` for another
-Foot terminal, `Super+Shift+Return` to test Ghostty, `Super+1/2/3` to switch
-workspaces, and `Super+Shift+Q` to exit Hyprland. Installer and QEMU logs are
-under the configured data root's `logs` directory.
+Click `<VM name>.lnk`, or run `host\start.ps1`. The guest autologs into a TTY.
+Run `Hyprland` to start the session. Ghostty opens by default; `Super+Return`
+opens Ghostty and `Super+Shift+Return` opens Foot as a fallback. `Super+1/2/3`
+switches workspaces; `Super+Shift+Q` returns to the shell. Run `sudo poweroff`
+to shut the VM down.
 
-## Check graphics
+The optional `<VM name> - Reconfigure.lnk` (or
+`host\start.ps1 -Reconfigure`) explicitly reruns Ansible. Use it after changing
+the Hyprland scale or guest Ansible/config. Shut down the VM before
+reconfiguring. CPU, memory, GPU host memory, and fullscreen apply at next launch;
+disk size, guest username, and timezone are creation-time settings. Changing
+the VM name selects a different instance directory.
 
-Inside Hyprland:
+`versions.json` pins the QEMU runtime and Arch ISO. VM files, logs, and downloads
+are under `ARCH_QEMU_STORAGE_ROOT\ARCH_QEMU_VM_NAME`.
+
+## Updating the existing POC VM
+
+An older `.env` containing `ARCH_QEMU_DATA_ROOT=G:\ArchHyprlandVM` is recognized:
+it maps to storage root `G:\` and VM name `ArchHyprlandVM`. The installer
+renames the old `vm\arch.qcow2` file to the named disk filename without
+recreating it.
+
+The older guest contains a one-time provisioner. Before using its new
+reconfigure shortcut, open Foot in the existing guest and run this once to
+update Ansible, the manual-start shell profile, and the boot-time helper:
 
 ```sh
-glxinfo -B
-hyprctl monitors all
-vulkaninfo --summary
-glmark2-wayland --fullscreen
+cd ~/dotfiles
+git fetch origin main
+git checkout --detach FETCH_HEAD
+sudo env ANSIBLE_CONFIG="$HOME/dotfiles/OS/arch/qemu/ansible/ansible.cfg" \
+  ansible-playbook -i 'arch_qemu,' -c local \
+  "$HOME/dotfiles/OS/arch/qemu/ansible/playbook.yml" \
+  --extra-vars "arch_user=$USER hyprland_scale=1.5"
 ```
 
-VirGL (not `llvmpipe`) is the MVP acceleration check. 4K/144 Hz depends on
-what the host display and QEMU/WHPX virtio-GPU path expose; first confirm a
-working Hyprland session and a usable monitor mode. Venus/Vulkan is optional.
-
-`versions.json` pins the QEMU runtime, Arch ISO checksum, and package snapshot.
-`setup.ps1` never overwrites an existing VM disk. To retry from scratch, only
-remove the VM data root if you are sure its disk is disposable.
+Then exit Hyprland with `Super+Shift+Q`, run `sudo poweroff` at the shell, and
+run `host\install.ps1` from Windows PowerShell once. It renames the existing disk
+file without reinstalling Arch, creates the configured shortcut, and starts the
+VM with the new TTY-first behavior.

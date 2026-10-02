@@ -10,11 +10,5 @@
     "release": "WINQ-EMU Alpha 10 / QEMU 11.0.0",
     "url": "https://github.com/omacom/try-omarchy-windows/releases/download/v0.7.1/winq-emu-alpha10-portable.zip",
     "sha256": "748a25068f6e1cc30b2d73f089fdefdc182ec2f3f0653687c13e72230ca6b593"
-  },
-  "vm": {
-    "diskGiB": 64,
-    "cpus": 8,
-    "memoryMiB": 6144,
-    "gpuHostMemoryGiB": 4
   }
 }

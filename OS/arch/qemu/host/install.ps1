@@ -1,65 +1,49 @@
 [CmdletBinding()]
-param(
-    [string]$DataRoot,
-    [string]$DotfilesRef,
-    [switch]$ConfirmWipe
-)
+param()
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "common.ps1")
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
-$envFile = Join-Path $repoRoot ".env"
-$settings = @{}
-if (Test-Path $envFile) {
-    foreach ($line in Get-Content $envFile) {
-        if ($line -match '^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$') {
-            $settings[$Matches[1]] = $Matches[2].Trim([char[]]@('"', "'"))
-        }
-    }
-}
-if (-not $DataRoot -and $settings.ContainsKey("ARCH_QEMU_DATA_ROOT")) { $DataRoot = $settings.ARCH_QEMU_DATA_ROOT }
-if (-not $DotfilesRef -and $settings.ContainsKey("ARCH_QEMU_DOTFILES_REF")) { $DotfilesRef = $settings.ARCH_QEMU_DOTFILES_REF }
-if (-not $DataRoot) { throw "Set ARCH_QEMU_DATA_ROOT in .env (copy .env.example) or pass -DataRoot." }
-if (-not $DotfilesRef) { $DotfilesRef = "main" }
-if ($DotfilesRef -notmatch '^[A-Za-z0-9._/-]+$' -or $DotfilesRef.Contains('..')) { throw "DotfilesRef must be a branch, tag, or commit identifier using letters, numbers, '.', '_', '-', and '/'." }
-
-$DataRoot = [System.IO.Path]::GetFullPath($DataRoot).TrimEnd('\')
-$complete = Join-Path $DataRoot "vm\install-complete"
+$settings = Get-QemuSettings -EnvPath (Join-Path $repoRoot ".env")
+$complete = Join-Path $settings.DataRoot "vm\install-complete"
 $bootstrap = (Resolve-Path (Join-Path $PSScriptRoot "..\guest\install-arch.sh")).Path
+$guestSettings = Join-Path $settings.DataRoot "tmp\guest-settings"
 
-& (Join-Path $PSScriptRoot "setup.ps1") -DataRoot $DataRoot
-$repoFile = Join-Path $DataRoot "tmp\dotfiles-repo"
-$refFile = Join-Path $DataRoot "tmp\dotfiles-ref"
-$tokenFile = Join-Path $DataRoot "tmp\github-token"
-[System.IO.File]::WriteAllText($repoFile, "https://github.com/nwassom/dotfiles.git", [System.Text.UTF8Encoding]::new($false))
-[System.IO.File]::WriteAllText($refFile, $DotfilesRef, [System.Text.UTF8Encoding]::new($false))
-$githubToken = if ($settings.ContainsKey("ARCH_QEMU_GITHUB_TOKEN")) { $settings.ARCH_QEMU_GITHUB_TOKEN } else { "" }
-if ($githubToken) {
-    if ($githubToken -match '\s') { throw "ARCH_QEMU_GITHUB_TOKEN must not contain whitespace." }
-    [System.IO.File]::WriteAllText($tokenFile, $githubToken, [System.Text.UTF8Encoding]::new($false))
-}
-elseif (Test-Path $tokenFile) {
-    Remove-Item -LiteralPath $tokenFile -Force
-}
-$tokenArgs = if (Test-Path $tokenFile) { @("-GitHubTokenFile", $tokenFile) } else { @() }
+& (Join-Path $PSScriptRoot "setup.ps1") `
+    -DataRoot $settings.DataRoot `
+    -VmName $settings.VmName `
+    -DiskGiB $settings.DiskGiB
 
 if (-not (Test-Path $complete)) {
+    Write-QemuGuestSettings -Settings $settings -Path $guestSettings
+
     & (Join-Path $PSScriptRoot "launch.ps1") `
-        -DataRoot $DataRoot `
+        -DataRoot $settings.DataRoot `
+        -VmName $settings.VmName `
+        -GuestSettingsFile $guestSettings `
         -Installer `
         -BootstrapScript $bootstrap `
-        -DotfilesRepoFile $repoFile `
-        -DotfilesRefFile $refFile `
-        @tokenArgs
+        -Cpus $settings.Cpus `
+        -MemoryMiB $settings.MemoryMiB `
+        -GPUHostMemoryGiB $settings.GPUHostMemoryGiB `
+        -Fullscreen $settings.Fullscreen
 
-    if ($ConfirmWipe) {
-        & (Join-Path $PSScriptRoot "install-guest.ps1") -DataRoot $DataRoot -ConfirmWipe
-    }
-    else {
-        & (Join-Path $PSScriptRoot "install-guest.ps1") -DataRoot $DataRoot
-    }
+    $isoName = (Get-Content (Join-Path $PSScriptRoot "..\versions.json") -Raw | ConvertFrom-Json).arch.iso
+    & (Join-Path $PSScriptRoot "install-guest.ps1") `
+        -DataRoot $settings.DataRoot `
+        -VmName $settings.VmName `
+        -IsoName $isoName
 }
 
-& (Join-Path $PSScriptRoot "launch.ps1") -DataRoot $DataRoot @tokenArgs
-Write-Host "Arch is provisioning itself from $DotfilesRef on first boot; leave QEMU open until Hyprland starts."
+$shortcutRoot = switch ($settings.Shortcut) {
+    "desktop" { [Environment]::GetFolderPath("Desktop") }
+    "start-menu" { [Environment]::GetFolderPath("Programs") }
+}
+if ($shortcutRoot) {
+    New-QemuShortcut -Path (Join-Path $shortcutRoot "$($settings.VmName).lnk") -ScriptPath (Join-Path $PSScriptRoot "start.ps1")
+    New-QemuShortcut -Path (Join-Path $shortcutRoot "$($settings.VmName) - Reconfigure.lnk") -ScriptPath (Join-Path $PSScriptRoot "start.ps1") -Reconfigure
+}
+
+& (Join-Path $PSScriptRoot "start.ps1")

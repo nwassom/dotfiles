@@ -3,6 +3,12 @@ param(
     [Parameter(Mandatory)]
     [string]$DataRoot,
 
+    [Parameter(Mandatory)]
+    [string]$VmName,
+
+    [Parameter(Mandatory)]
+    [string]$IsoName,
+
     [ValidateRange(1, 900)]
     [int]$InstallerBootSeconds = 90,
 
@@ -16,19 +22,18 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $DataRoot = [System.IO.Path]::GetFullPath($DataRoot).TrimEnd('\')
-if ([System.IO.Path]::GetPathRoot($DataRoot).Substring(0, 1) -eq "C") {
-    throw "VM and installer files must remain on a non-C: drive."
-}
-
 $qmpPath = Join-Path $DataRoot "tmp\qmp.sock"
 $log = Join-Path $DataRoot "logs\serial.log"
-$qemu = Get-Process qemu-system-x86_64w -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $qemu) { throw "QEMU is not running; start launch.ps1 -Installer first." }
-$qemuInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$($qemu.Id)"
-if ($qemuInfo.CommandLine -notmatch '-cdrom\s+.*archlinux-2026\.10\.01-x86_64\.iso' -or
-    $qemuInfo.CommandLine -notmatch '-boot\s+order=d') {
-    throw "The active QEMU process is not booted into this project's Arch ISO installer."
-}
+$disk = Join-Path $DataRoot "vm\$($VmName).qcow2"
+$qemuInfo = Get-CimInstance Win32_Process -Filter "Name='qemu-system-x86_64w.exe'" |
+    Where-Object {
+        $_.CommandLine -and
+        $_.CommandLine.IndexOf($disk, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $_.CommandLine.IndexOf($IsoName, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+    } |
+    Select-Object -First 1
+if (-not $qemuInfo) { throw "QEMU is not running $VmName from the Arch ISO; run host\install.ps1." }
+$qemu = Get-Process -Id $qemuInfo.ProcessId -ErrorAction Stop
 
 $qmpDeadline = (Get-Date).AddSeconds(60)
 while (-not (Test-Path $qmpPath) -and (Get-Date) -lt $qmpDeadline -and (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue)) {

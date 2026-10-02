@@ -3,6 +3,9 @@ param(
     [Parameter(Mandatory)]
     [string]$DataRoot,
 
+    [Parameter(Mandatory)]
+    [string]$VmName,
+
     [ValidateRange(32, 1024)]
     [int]$DiskGiB = 64
 )
@@ -12,8 +15,6 @@ $ErrorActionPreference = "Stop"
 
 $DataRoot = [System.IO.Path]::GetFullPath($DataRoot).TrimEnd('\')
 $driveLetter = [System.IO.Path]::GetPathRoot($DataRoot).Substring(0, 1)
-if ($driveLetter -eq "C") { throw "VM data must be stored on a non-C: drive." }
-if ($DataRoot -match '\s') { throw "Choose a data path without spaces to keep QEMU arguments simple." }
 
 $volume = Get-Volume -DriveLetter $driveLetter
 if ($volume.DriveType -ne "Fixed" -or $volume.FileSystem -notin @("NTFS", "ReFS")) {
@@ -64,7 +65,12 @@ if (-not $qemu) {
 $qemuImg = Get-ChildItem (Join-Path $DataRoot "runtime") -Filter "qemu-img.exe" -Recurse | Select-Object -First 1
 if (-not $qemu -or -not $qemuImg) { throw "WINQ-EMU QEMU binaries were not found after extraction." }
 
-$disk = Join-Path $DataRoot "vm\arch.qcow2"
+$disk = Join-Path $DataRoot "vm\$($VmName).qcow2"
+$legacyDisk = Join-Path $DataRoot "vm\arch.qcow2"
+if (-not (Test-Path $disk) -and (Test-Path $legacyDisk)) {
+    Move-Item -LiteralPath $legacyDisk -Destination $disk
+    Write-Host "Migrated the existing Arch disk to the named VM filename without recreating it."
+}
 if (-not (Test-Path $disk)) {
     & $qemuImg.FullName create -f qcow2 $disk "${DiskGiB}G"
     if ($LASTEXITCODE -ne 0) { throw "qemu-img could not create $disk." }
@@ -73,5 +79,5 @@ elseif ((Get-Item $disk).Length -eq 0) {
     throw "Existing guest disk is empty; refusing to overwrite it. Remove it yourself only if it is disposable."
 }
 
-Write-Host "WINQ-EMU runtime, Arch ISO, and new guest disk are ready under $DataRoot."
-Write-Host "No existing disk was replaced. Next: .\launch.ps1 -DataRoot `"$DataRoot`" -Installer"
+Write-Host "WINQ-EMU runtime, Arch ISO, and $VmName guest disk are ready under $DataRoot."
+Write-Host "No existing disk was replaced."
