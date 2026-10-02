@@ -1,59 +1,59 @@
 # Arch + Hyprland in QEMU/WHPX
 
-This creates a reproducible vanilla Arch guest using the pinned WINQ-EMU
-runtime, BIOS boot, a QCOW2 disk on a user-selected non-C: drive, and an Arch
-Linux Archive package snapshot pinned to the ISO date.
+This provisions a minimal Arch guest in QEMU on Windows. On first boot, Arch
+clones this public repository and runs its QEMU Ansible playbook locally. No
+WSL, SSH, or host-side Ansible is required.
 
-The initial guest contains current Hyprland, Ghostty, Mesa, and VirGL/Venus diagnostic
-tools, and no dock, theme, or development workstation stack. Hyprland uses the
-display's preferred mode, enables animations, and starts Ghostty on login. The guest
-clones this repository to `/home/nwassom/dotfiles` and runs its QEMU Ansible playbook
-locally; Windows host files are not mounted in the guest.
+The guest uses the pinned WINQ-EMU runtime, an Arch Linux Archive snapshot, a
+QCOW2 disk, and QEMU virtio-GPU with VirGL. It installs Hyprland, Ghostty,
+Mesa, and graphics diagnostics; no dock, theme, or workstation stack.
 
 ## Install
 
-First verify WHPX from elevated PowerShell. The scripts do not enable Windows
-features or restart the host:
+Requirements: Windows with Hypervisor Platform enabled, PowerShell, internet
+access, and a fixed NTFS/ReFS data drive other than C: with at least 25 GiB
+free. The selected path must not contain spaces. Check the Windows feature in
+elevated PowerShell with `Get-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform`;
+if disabled, enable it with `Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All`
+and reboot.
+
+Copy `.env.example` to `.env` at the repository root and set `ARCH_QEMU_DATA_ROOT`
+to your VM storage path. `ARCH_QEMU_DOTFILES_REF` defaults to `main`; set it to
+a branch, tag, or commit that is available on GitHub. The guest clones from
+GitHub, so push the revision you want to test before launching.
+
+From PowerShell at the repository root:
 
 ```powershell
-Get-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform
+Copy-Item .env.example .env
+# Edit .env and set ARCH_QEMU_DATA_ROOT to a non-C: path, e.g. G:\ArchHyprlandVM
+.\OS\arch\qemu\host\install.ps1
 ```
 
-Then run one command from the repository root:
+On first install, confirm the wipe of the newly-created VM disk. Keep the QEMU
+window open while Arch boots, clones the selected revision, and runs Ansible;
+Hyprland starts after provisioning. Re-running the command starts the VM.
 
-```powershell
-.\OS\arch\qemu\host\install.ps1 -DataRoot G:\ArchHyprlandVM -DotfilesRef main
-```
+The guest autologs into Hyprland and opens Ghostty. Use `Super+Return` for
+another terminal, `Super+1/2/3` to switch workspaces, and `Super+Shift+Q` to
+exit Hyprland. Installer and QEMU logs are under the configured data root's
+`logs` directory.
 
-On first run, the script prepares QEMU, installs Arch from the ISO, clones the selected
-public GitHub ref into the guest, applies Ansible locally, and boots Hyprland. Confirm
-the guest disk wipe when prompted; add `-ConfirmWipe` to authorize it non-interactively.
-Use a commit SHA with `-DotfilesRef` to reproduce a specific dotfiles revision. The
-installer downloads its bootstrap from that ref, so push the desired revision first.
-On later runs, the same command launches the installed guest directly.
-
-The guest autologs into Hyprland and opens Ghostty. Use `Super+Return` to open
-another terminal, `Super+1/2/3` to switch workspaces, and `Super+Shift+Q` to exit
-Hyprland. QEMU, the ISO, QCOW2 disk, logs, and temporary sockets stay under the
-selected data root. The installed dotfiles commit is recorded in
-`/etc/arch-hyprland-dotfiles.commit`.
-
-## Renderer check
+## Check graphics
 
 Inside Hyprland:
 
 ```sh
 glxinfo -B
-vulkaninfo --summary
 hyprctl monitors all
+vulkaninfo --summary
 glmark2-wayland --fullscreen
 ```
 
-The guest must report a VirGL renderer, not `llvmpipe`. Check `hyprctl monitors`
-for the mode QEMU exposes; 4K/144 Hz is only available if the host display and
-QEMU/WHPX virtio-gpu path expose it. Venus/Vulkan is optional. No NVIDIA Linux
-driver is installed in the guest.
+VirGL (not `llvmpipe`) is the MVP acceleration check. 4K/144 Hz depends on
+what the host display and QEMU/WHPX virtio-GPU path expose; first confirm a
+working Hyprland session and a usable monitor mode. Venus/Vulkan is optional.
 
-`versions.json` pins the runtime, ISO checksum, and Arch repository snapshot.
-Update those pins deliberately and rerun performance checks. `setup.ps1` never
-overwrites an existing `arch.qcow2`.
+`versions.json` pins the QEMU runtime, Arch ISO checksum, and package snapshot.
+`setup.ps1` never overwrites an existing VM disk. To retry from scratch, only
+remove the VM data root if you are sure its disk is disposable.

@@ -9,9 +9,6 @@ param(
     [ValidateRange(300, 3600)]
     [int]$InstallTimeoutSeconds = 1800,
 
-    [ValidatePattern('^[A-Za-z0-9._/-]+$')]
-    [string]$DotfilesRef = "main",
-
     [switch]$ConfirmWipe
 )
 
@@ -124,7 +121,7 @@ function Send-QmpText {
     Send-Qmp @{ execute = "send-key"; arguments = @{ keys = @(@{ type = "qcode"; data = "ret" }); "hold-time" = 35 } }
 }
 
-Send-QmpText "DOTFILES_REF=$DotfilesRef curl -fsSL https://raw.githubusercontent.com/nwassom/dotfiles/$DotfilesRef/OS/arch/qemu/guest/install-arch.sh | DOTFILES_REF=$DotfilesRef bash"
+Send-QmpText "modprobe qemu_fw_cfg && bash /sys/firmware/qemu_fw_cfg/by_name/install-arch/raw"
 $confirmation = "Type WIPE-ARCH-GUEST"
 $installDeadline = (Get-Date).AddSeconds($InstallTimeoutSeconds)
 while ((Get-Date) -lt $installDeadline) {
@@ -135,12 +132,12 @@ while ((Get-Date) -lt $installDeadline) {
     if (Test-Path $log) {
         $logText = Get-Content $log -Raw
     if ($logText -match [regex]::Escape($confirmation)) { break }
-        if ($logText -match "Initial Arch \+ Hyprland guest installed") { break }
+        if ($logText -match "Initial Arch base guest installed") { break }
     }
     Start-Sleep -Seconds 2
 }
 
-if (-not (Test-Path $log) -or (Get-Content $log -Raw) -notmatch "Initial Arch \+ Hyprland guest installed") {
+if (-not (Test-Path $log) -or (Get-Content $log -Raw) -notmatch "Initial Arch base guest installed") {
     $logText = if (Test-Path $log) { Get-Content $log -Raw } else { "" }
     if ($logText -notmatch [regex]::Escape($confirmation)) {
         if ($logText) { Write-Host $logText }
@@ -160,10 +157,10 @@ while ((Get-Date) -lt $installDeadline -and (Get-Process -Id $qemu.Id -ErrorActi
 if (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue) {
     throw "Arch install is still running; inspect $log before taking any action."
 }
-if (-not (Test-Path $log) -or (Get-Content $log -Raw) -notmatch "Initial Arch \+ Hyprland guest installed") {
+if (-not (Test-Path $log) -or (Get-Content $log -Raw) -notmatch "Initial Arch base guest installed") {
     throw "QEMU exited without reporting a successful install; inspect $log before retrying."
 }
 
 Write-Host "Arch install finished. Guest install log: $log"
 if (Test-Path $log) { Get-Content $log -Tail 80 }
-Set-Content -Path (Join-Path $DataRoot "vm\install-complete") -Value $DotfilesRef -NoNewline
+Set-Content -Path (Join-Path $DataRoot "vm\install-complete") -Value "base-installed" -NoNewline

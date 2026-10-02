@@ -1,7 +1,6 @@
 ---
 - name: Minimal Arch + Hyprland QEMU guest
-  hosts: localhost
-  connection: local
+  hosts: arch_qemu
   gather_facts: true
 
   vars:

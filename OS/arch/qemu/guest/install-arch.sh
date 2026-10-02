@@ -7,7 +7,6 @@ ARCH_HOSTNAME=${ARCH_HOSTNAME:-arch-hyprland}
 ARCH_TIMEZONE=${ARCH_TIMEZONE:-America/New_York}
 ARCH_REPO_SNAPSHOT=${ARCH_REPO_SNAPSHOT:-2026/10/01}
 ARCH_DISK_GIB=${ARCH_DISK_GIB:-64}
-DOTFILES_REF=${DOTFILES_REF:-main}
 
 if [[ ${EUID} -ne 0 ]]; then
     echo "Run this installer as root from the Arch ISO." >&2
@@ -15,6 +14,18 @@ if [[ ${EUID} -ne 0 ]]; then
 fi
 
 exec > >(tee -a /dev/ttyS0) 2>&1
+
+modprobe qemu_fw_cfg
+if [[ ! -r /sys/firmware/qemu_fw_cfg/by_name/dotfiles-repo/raw || ! -r /sys/firmware/qemu_fw_cfg/by_name/dotfiles-ref/raw ]]; then
+    echo "QEMU did not provide the dotfiles repository and ref." >&2
+    exit 1
+fi
+ARCH_DOTFILES_REPO=$(</sys/firmware/qemu_fw_cfg/by_name/dotfiles-repo/raw)
+ARCH_DOTFILES_REF=$(</sys/firmware/qemu_fw_cfg/by_name/dotfiles-ref/raw)
+if [[ "$ARCH_DOTFILES_REPO" != "https://github.com/nwassom/dotfiles.git" || ! "$ARCH_DOTFILES_REF" =~ ^[A-Za-z0-9._/-]+$ || "$ARCH_DOTFILES_REF" == *..* ]]; then
+    echo "Invalid dotfiles repository or ref." >&2
+    exit 1
+fi
 
 if [[ ! "$ARCH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
     echo "Invalid ARCH_USER." >&2
@@ -61,10 +72,10 @@ pacstrap -K /mnt \
     amd-ucode \
     grub \
     sudo \
-    git \
     networkmanager \
+    ansible \
+    git \
     python \
-    ansible-core \
     dbus
 
 genfstab -U /mnt > /mnt/etc/fstab
@@ -74,7 +85,8 @@ arch-chroot /mnt /usr/bin/env \
     ARCH_USER="$ARCH_USER" \
     ARCH_HOSTNAME="$ARCH_HOSTNAME" \
     ARCH_TIMEZONE="$ARCH_TIMEZONE" \
-    DOTFILES_REF="$DOTFILES_REF" \
+    ARCH_DOTFILES_REPO="$ARCH_DOTFILES_REPO" \
+    ARCH_DOTFILES_REF="$ARCH_DOTFILES_REF" \
     /bin/bash -e <<'CHROOT'
 set -euo pipefail
 
@@ -114,27 +126,55 @@ fi
 EOF
 chown "$ARCH_USER:$ARCH_USER" "/home/$ARCH_USER/.bash_profile"
 
-systemctl enable NetworkManager getty@tty1.service
+printf '%s\n' "$ARCH_DOTFILES_REPO" > /etc/arch-hyprland-dotfiles-repo
+printf '%s\n' "$ARCH_DOTFILES_REF" > /etc/arch-hyprland-dotfiles-ref
 
-git clone --depth 1 --branch "$DOTFILES_REF" https://github.com/nwassom/dotfiles.git "/home/$ARCH_USER/dotfiles"
-chown -R "$ARCH_USER:$ARCH_USER" "/home/$ARCH_USER/dotfiles"
+cat > /usr/local/bin/provision-arch-hyprland <<'PROVISION'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ -s /etc/arch-hyprland-dotfiles.commit ]]; then exit 0; fi
+repo=$(</etc/arch-hyprland-dotfiles-repo)
+ref=$(</etc/arch-hyprland-dotfiles-ref)
+target=/home/nwassom/dotfiles
+if [[ ! -d "$target/.git" ]]; then
+    git clone "$repo" "$target"
+fi
+git -C "$target" fetch --tags --force origin
+git -C "$target" checkout --detach "$ref"
+cd "$target"
+ANSIBLE_CONFIG="$target/OS/arch/qemu/ansible/ansible.cfg" \
+    ansible-playbook -i 'arch_qemu,' OS/arch/qemu/ansible/playbook.yml \
+    --extra-vars 'arch_user=nwassom ansible_connection=local'
+chown -R nwassom:nwassom "$target"
+git -C "$target" rev-parse HEAD > /etc/arch-hyprland-dotfiles.commit
+PROVISION
+chmod 0755 /usr/local/bin/provision-arch-hyprland
+
+cat > /etc/systemd/system/arch-hyprland-provision.service <<'EOF'
+[Unit]
+Description=Clone dotfiles and provision Hyprland
+Wants=network-online.target
+After=NetworkManager.service network-online.target
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/provision-arch-hyprland
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable NetworkManager NetworkManager-wait-online.service arch-hyprland-provision.service getty@tty1.service
 CHROOT
-
-arch-chroot /mnt /usr/bin/env \
-    ANSIBLE_CONFIG="/home/$ARCH_USER/dotfiles/OS/arch/qemu/ansible/ansible.cfg" \
-    ansible-playbook \
-    -i "/home/$ARCH_USER/dotfiles/OS/arch/qemu/ansible/inventory.yml" \
-    "/home/$ARCH_USER/dotfiles/OS/arch/qemu/ansible/playbook.yml" \
-    --extra-vars "arch_user=$ARCH_USER"
 
 arch-chroot /mnt grub-install --target=i386-pc --recheck "$DISK"
 arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 arch-chroot /mnt mkinitcpio -P
-arch-chroot /mnt pacman -Q > /mnt/etc/arch-hyprland-packages.lock
-git -C "/mnt/home/$ARCH_USER/dotfiles" rev-parse HEAD > /mnt/etc/arch-hyprland-dotfiles.commit
 printf 'WINQ-EMU runtime: Alpha 10 / QEMU 11.0.0\nArch snapshot: %s\n' "$ARCH_REPO_SNAPSHOT" > /mnt/etc/arch-hyprland-build
 
 sync
 umount -R /mnt
-echo "Initial Arch + Hyprland guest installed. Powering off for normal-disk boot."
+echo "Initial Arch base guest installed. Powering off for Ansible provisioning."
 poweroff

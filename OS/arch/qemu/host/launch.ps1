@@ -5,6 +5,12 @@ param(
 
     [switch]$Installer,
 
+    [string]$BootstrapScript,
+
+    [string]$DotfilesRepoFile,
+
+    [string]$DotfilesRefFile,
+
     [ValidateRange(2, 16)]
     [int]$Cpus = 8,
 
@@ -33,6 +39,9 @@ foreach ($path in @($disk, $logs, $temp)) {
     if (-not (Test-Path $path)) { throw "Missing setup path: $path. Run setup.ps1 first." }
 }
 if ($Installer -and -not $iso) { throw "The pinned Arch ISO is missing; run setup.ps1 first." }
+if ($Installer -and (-not (Test-Path $BootstrapScript) -or -not (Test-Path $DotfilesRepoFile) -or -not (Test-Path $DotfilesRefFile))) {
+    throw "Installer mode requires the bootstrap script and dotfiles repo/ref settings."
+}
 
 # The trial host OS stays usable; the defaults mirror the tested balanced profile.
 $arguments = @(
@@ -59,6 +68,11 @@ $arguments = @(
 
 if ($Installer) {
     $arguments += @("-cdrom", $iso.FullName, "-boot", "order=d")
+    $arguments += @(
+        "-fw_cfg", "name=install-arch,file=$BootstrapScript",
+        "-fw_cfg", "name=dotfiles-repo,file=$DotfilesRepoFile",
+        "-fw_cfg", "name=dotfiles-ref,file=$DotfilesRefFile"
+    )
 }
 else {
     $arguments += @("-boot", "order=c")
