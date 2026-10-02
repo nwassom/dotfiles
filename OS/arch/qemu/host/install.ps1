@@ -31,8 +31,18 @@ $bootstrap = (Resolve-Path (Join-Path $PSScriptRoot "..\guest\install-arch.sh"))
 & (Join-Path $PSScriptRoot "setup.ps1") -DataRoot $DataRoot
 $repoFile = Join-Path $DataRoot "tmp\dotfiles-repo"
 $refFile = Join-Path $DataRoot "tmp\dotfiles-ref"
+$tokenFile = Join-Path $DataRoot "tmp\github-token"
 [System.IO.File]::WriteAllText($repoFile, "https://github.com/nwassom/dotfiles.git", [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText($refFile, $DotfilesRef, [System.Text.UTF8Encoding]::new($false))
+$githubToken = if ($settings.ContainsKey("ARCH_QEMU_GITHUB_TOKEN")) { $settings.ARCH_QEMU_GITHUB_TOKEN } else { "" }
+if ($githubToken) {
+    if ($githubToken -match '\s') { throw "ARCH_QEMU_GITHUB_TOKEN must not contain whitespace." }
+    [System.IO.File]::WriteAllText($tokenFile, $githubToken, [System.Text.UTF8Encoding]::new($false))
+}
+elseif (Test-Path $tokenFile) {
+    Remove-Item -LiteralPath $tokenFile -Force
+}
+$tokenArgs = if (Test-Path $tokenFile) { @("-GitHubTokenFile", $tokenFile) } else { @() }
 
 if (-not (Test-Path $complete)) {
     & (Join-Path $PSScriptRoot "launch.ps1") `
@@ -40,7 +50,8 @@ if (-not (Test-Path $complete)) {
         -Installer `
         -BootstrapScript $bootstrap `
         -DotfilesRepoFile $repoFile `
-        -DotfilesRefFile $refFile
+        -DotfilesRefFile $refFile `
+        @tokenArgs
 
     if ($ConfirmWipe) {
         & (Join-Path $PSScriptRoot "install-guest.ps1") -DataRoot $DataRoot -ConfirmWipe
@@ -50,5 +61,5 @@ if (-not (Test-Path $complete)) {
     }
 }
 
-& (Join-Path $PSScriptRoot "launch.ps1") -DataRoot $DataRoot
+& (Join-Path $PSScriptRoot "launch.ps1") -DataRoot $DataRoot @tokenArgs
 Write-Host "Arch is provisioning itself from $DotfilesRef on first boot; leave QEMU open until Hyprland starts."

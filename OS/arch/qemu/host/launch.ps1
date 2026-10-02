@@ -11,6 +11,8 @@ param(
 
     [string]$DotfilesRefFile,
 
+    [string]$GitHubTokenFile,
+
     [ValidateRange(2, 16)]
     [int]$Cpus = 8,
 
@@ -28,8 +30,11 @@ if ([System.IO.Path]::GetPathRoot($DataRoot).Substring(0, 1) -eq "C") {
 if ($DataRoot -match '\s') { throw "Choose a data path without spaces to keep QEMU arguments simple." }
 
 $runtime = Join-Path $DataRoot "runtime"
+$provisioner = Join-Path $PSScriptRoot "..\guest\provision-arch-hyprland.sh"
 $qemu = Get-ChildItem $runtime -Filter "qemu-system-x86_64w.exe" -Recurse | Select-Object -First 1
 if (-not $qemu) { throw "Run setup.ps1 first; WINQ-EMU was not found under $runtime." }
+if (-not (Test-Path $provisioner)) { throw "Missing guest provisioner: $provisioner" }
+if ($GitHubTokenFile -and -not (Test-Path $GitHubTokenFile)) { throw "GitHub token file not found: $GitHubTokenFile" }
 
 $disk = Join-Path $DataRoot "vm\arch.qcow2"
 $iso = Get-ChildItem (Join-Path $DataRoot "iso") -Filter "archlinux-*.iso" | Select-Object -First 1
@@ -65,6 +70,8 @@ $arguments = @(
     "-name", "ArchHyprland",
     "-full-screen"
 )
+$arguments += @("-fw_cfg", "name=provision-arch-hyprland,file=$provisioner")
+if ($GitHubTokenFile) { $arguments += @("-fw_cfg", "name=github-token,file=$GitHubTokenFile") }
 
 if ($Installer) {
     $arguments += @("-cdrom", $iso.FullName, "-boot", "order=d")

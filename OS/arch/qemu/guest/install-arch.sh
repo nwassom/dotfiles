@@ -22,6 +22,10 @@ if [[ ! -r /sys/firmware/qemu_fw_cfg/by_name/dotfiles-repo/raw || ! -r /sys/firm
 fi
 ARCH_DOTFILES_REPO=$(</sys/firmware/qemu_fw_cfg/by_name/dotfiles-repo/raw)
 ARCH_DOTFILES_REF=$(</sys/firmware/qemu_fw_cfg/by_name/dotfiles-ref/raw)
+if [[ ! -r /sys/firmware/qemu_fw_cfg/by_name/provision-arch-hyprland/raw ]]; then
+    echo "QEMU did not provide the guest provisioner." >&2
+    exit 1
+fi
 if [[ "$ARCH_DOTFILES_REPO" != "https://github.com/nwassom/dotfiles.git" || ! "$ARCH_DOTFILES_REF" =~ ^[A-Za-z0-9._/-]+$ || "$ARCH_DOTFILES_REF" == *..* ]]; then
     echo "Invalid dotfiles repository or ref." >&2
     exit 1
@@ -78,6 +82,10 @@ pacstrap -K /mnt \
     python \
     dbus
 
+install -D -o root -g root -m 0755 \
+    /sys/firmware/qemu_fw_cfg/by_name/provision-arch-hyprland/raw \
+    /mnt/usr/local/bin/provision-arch-hyprland
+
 genfstab -U /mnt > /mnt/etc/fstab
 printf 'Server = https://archive.archlinux.org/repos/%s/$repo/os/$arch\n' "$ARCH_REPO_SNAPSHOT" > /mnt/etc/pacman.d/mirrorlist
 
@@ -128,27 +136,7 @@ chown "$ARCH_USER:$ARCH_USER" "/home/$ARCH_USER/.bash_profile"
 
 printf '%s\n' "$ARCH_DOTFILES_REPO" > /etc/arch-hyprland-dotfiles-repo
 printf '%s\n' "$ARCH_DOTFILES_REF" > /etc/arch-hyprland-dotfiles-ref
-
-cat > /usr/local/bin/provision-arch-hyprland <<'PROVISION'
-#!/usr/bin/env bash
-set -Eeuo pipefail
-if [[ -s /etc/arch-hyprland-dotfiles.commit ]]; then exit 0; fi
-repo=$(</etc/arch-hyprland-dotfiles-repo)
-ref=$(</etc/arch-hyprland-dotfiles-ref)
-target=/home/nwassom/dotfiles
-if [[ ! -d "$target/.git" ]]; then
-    git clone "$repo" "$target"
-fi
-git -C "$target" fetch --tags --force origin
-git -C "$target" checkout --detach "$ref"
-cd "$target"
-ANSIBLE_CONFIG="$target/OS/arch/qemu/ansible/ansible.cfg" \
-    ansible-playbook -i 'arch_qemu,' OS/arch/qemu/ansible/playbook.yml \
-    --extra-vars 'arch_user=nwassom ansible_connection=local'
-chown -R nwassom:nwassom "$target"
-git -C "$target" rev-parse HEAD > /etc/arch-hyprland-dotfiles.commit
-PROVISION
-chmod 0755 /usr/local/bin/provision-arch-hyprland
+printf '%s\n' "$ARCH_USER" > /etc/arch-hyprland-user
 
 cat > /etc/systemd/system/arch-hyprland-provision.service <<'EOF'
 [Unit]

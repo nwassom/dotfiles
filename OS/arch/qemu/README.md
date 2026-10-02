@@ -1,7 +1,7 @@
 # Arch + Hyprland in QEMU/WHPX
 
 This provisions a minimal Arch guest in QEMU on Windows. On first boot, Arch
-clones this public repository and runs its QEMU Ansible playbook locally. No
+clones this repository and runs its QEMU Ansible playbook locally. No
 WSL, SSH, or host-side Ansible is required.
 
 The guest uses the pinned WINQ-EMU runtime, an Arch Linux Archive snapshot, a
@@ -20,15 +20,23 @@ and reboot.
 Copy `.env.example` to `.env` at the repository root and set `ARCH_QEMU_DATA_ROOT`
 to your VM storage path. `ARCH_QEMU_DOTFILES_REF` defaults to `main`; set it to
 a branch, tag, or commit that is available on GitHub. The guest clones from
-GitHub, so push the revision you want to test before launching.
+GitHub, so push the revision you want to test before launching. For a private
+repository, set `ARCH_QEMU_GITHUB_TOKEN` to a fine-grained token restricted to
+this repository with the **Contents: read-only** permission. Leave it empty for
+a public repository.
 
 From PowerShell at the repository root:
 
 ```powershell
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 # Edit .env and set ARCH_QEMU_DATA_ROOT to a non-C: path, e.g. G:\ArchHyprlandVM
 .\OS\arch\qemu\host\install.ps1
 ```
+
+For a private repo, create a fine-grained GitHub token limited to this repo and
+**Contents: read-only**, then put it in `.env`. The installer temporarily copies
+it to `ARCH_QEMU_DATA_ROOT\tmp\github-token` for QEMU to pass to the guest; remove
+that file after provisioning succeeds. The token is not stored in the guest repo.
 
 On first install, confirm the wipe of the newly-created VM disk. Keep the QEMU
 window open while Arch boots, clones the selected revision, and runs Ansible;
