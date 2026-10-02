@@ -1,0 +1,59 @@
+---
+- name: Minimal Arch + Hyprland QEMU guest
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    target_user: "{{ arch_user | default('nwassom') }}"
+    target_home: "/home/{{ arch_user | default('nwassom') }}"
+
+  tasks:
+    - name: Install Hyprland, Ghostty, and virtio-gpu diagnostics
+      become: true
+      ansible.builtin.package:
+        name:
+          - dbus
+          - ghostty
+          - glmark2
+          - hyprland
+          - mesa
+          - mesa-utils
+          - vulkan-tools
+          - vulkan-virtio
+          - wayland-utils
+          - xorg-xwayland
+        state: present
+
+    - name: Create the Hyprland config directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config/hypr"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0755"
+
+    - name: Install the minimal Hyprland config
+      become: true
+      ansible.builtin.copy:
+        src: files/hyprland.conf
+        dest: "{{ target_home }}/.config/hypr/hyprland.conf"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: "0644"
+
+    - name: Capture exact guest package versions
+      become: true
+      ansible.builtin.command: pacman -Q
+      register: guest_packages
+      changed_when: false
+
+    - name: Save the guest package lock
+      become: true
+      ansible.builtin.copy:
+        content: "{{ guest_packages.stdout }}\n"
+        dest: /etc/arch-hyprland-packages.lock
+        owner: root
+        group: root
+        mode: "0644"

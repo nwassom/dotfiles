@@ -1,0 +1,20 @@
+{
+  "arch": {
+    "release": "2026.10.01",
+    "snapshot": "2026/10/01",
+    "iso": "archlinux-2026.10.01-x86_64.iso",
+    "isoUrl": "https://geo.mirror.pkgbuild.com/iso/2026.10.01/archlinux-2026.10.01-x86_64.iso",
+    "isoSha256": "684ded26c63240ff4a41e8c25ee84ea6da233f557364821f13d12c2b0a9059a5"
+  },
+  "runtime": {
+    "release": "WINQ-EMU Alpha 10 / QEMU 11.0.0",
+    "url": "https://github.com/omacom/try-omarchy-windows/releases/download/v0.7.1/winq-emu-alpha10-portable.zip",
+    "sha256": "748a25068f6e1cc30b2d73f089fdefdc182ec2f3f0653687c13e72230ca6b593"
+  },
+  "vm": {
+    "diskGiB": 64,
+    "cpus": 8,
+    "memoryMiB": 6144,
+    "gpuHostMemoryGiB": 4
+  }
+}
