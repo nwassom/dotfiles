@@ -42,6 +42,15 @@ if ($running) {
     return
 }
 
+$qmpSocket = Join-Path $temp "qmp.sock"
+if (Test-Path $qmpSocket) { Remove-Item -LiteralPath $qmpSocket -Force }
+$qmpPortFile = Join-Path $temp "qmp-port"
+$portListener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+$portListener.Start()
+$qmpPort = $portListener.LocalEndpoint.Port
+$portListener.Stop()
+[System.IO.File]::WriteAllText($qmpPortFile, "$qmpPort", [System.Text.UTF8Encoding]::new($false))
+
 $arguments = @(
     "-machine", "q35,accel=whpx",
     "-cpu", "host",
@@ -57,7 +66,7 @@ $arguments = @(
     "-device", "virtio-net-pci,netdev=n0",
     "-serial", "file:$(Join-Path $logs 'serial.log')",
     "-D", (Join-Path $logs "qemu.log"),
-    "-qmp", "unix:$(Join-Path $temp 'qmp.sock'),server=on,wait=off",
+    "-qmp", "tcp:127.0.0.1:$qmpPort,server=on,wait=off",
     "-rtc", "base=localtime,clock=host",
     "-no-reboot",
     "-name", $VmName

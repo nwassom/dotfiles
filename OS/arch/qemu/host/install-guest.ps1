@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $DataRoot = [System.IO.Path]::GetFullPath($DataRoot).TrimEnd('\')
-$qmpPath = Join-Path $DataRoot "tmp\qmp.sock"
+$qmpPortFile = Join-Path $DataRoot "tmp\qmp-port"
 $log = Join-Path $DataRoot "logs\serial.log"
 $disk = Join-Path $DataRoot "vm\$($VmName).qcow2"
 $qemuInfo = Get-CimInstance Win32_Process -Filter "Name='qemu-system-x86_64w.exe'" |
@@ -35,67 +35,52 @@ $qemuInfo = Get-CimInstance Win32_Process -Filter "Name='qemu-system-x86_64w.exe
 if (-not $qemuInfo) { throw "QEMU is not running $VmName from the Arch ISO; run host\install.ps1." }
 $qemu = Get-Process -Id $qemuInfo.ProcessId -ErrorAction Stop
 
-$qmpDeadline = (Get-Date).AddSeconds(60)
-while (-not (Test-Path $qmpPath) -and (Get-Date) -lt $qmpDeadline -and (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue)) {
-    Start-Sleep -Seconds 1
-}
-if (-not (Test-Path $qmpPath)) {
-    throw "QEMU did not create its QMP socket at $qmpPath. Check $DataRoot\logs\qemu.log."
-}
+if (-not (Test-Path $qmpPortFile)) { throw "QEMU did not prepare its QMP port file under $DataRoot\tmp." }
 
 Write-Host "Waiting $InstallerBootSeconds seconds for the Arch ISO live shell (QEMU PID $($qemu.Id))."
 Start-Sleep -Seconds $InstallerBootSeconds
-
-# QEMU's Windows AF_UNIX QMP socket lets setup type only the live-ISO commands.
-$source = @"
-using System;
-using System.Runtime.InteropServices;
-public static class ArchQmpSocket {
-    [DllImport("Ws2_32.dll", SetLastError=true)] public static extern int WSAStartup(ushort version, IntPtr data);
-    [DllImport("Ws2_32.dll", SetLastError=true)] public static extern IntPtr socket(int af, int type, int protocol);
-    [DllImport("Ws2_32.dll", SetLastError=true)] public static extern int connect(IntPtr socket, IntPtr address, int length);
-    [DllImport("Ws2_32.dll", SetLastError=true)] public static extern int send(IntPtr socket, byte[] data, int length, int flags);
-    [DllImport("Ws2_32.dll", SetLastError=true)] public static extern int recv(IntPtr socket, byte[] data, int length, int flags);
-    [DllImport("Ws2_32.dll")] public static extern int closesocket(IntPtr socket);
-    [DllImport("Ws2_32.dll")] public static extern int WSACleanup();
-    [DllImport("Ws2_32.dll")] public static extern int WSAGetLastError();
+if (-not (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue)) {
+    if (Test-Path (Join-Path $DataRoot "logs\qemu.log")) { Get-Content (Join-Path $DataRoot "logs\qemu.log") -Tail 80 }
+    throw "QEMU exited while the Arch ISO was booting; no disk install was started."
 }
-"@
-if (-not ("ArchQmpSocket" -as [type])) { Add-Type -TypeDefinition $source }
 
-$wsa = [Runtime.InteropServices.Marshal]::AllocHGlobal(512)
-[void][ArchQmpSocket]::WSAStartup(514, $wsa)
-$socketPath = Join-Path $DataRoot "tmp\qmp.sock"
-$pathBytes = [Text.Encoding]::ASCII.GetBytes($socketPath)
-if ($pathBytes.Length -gt 106) { throw "QMP socket path is too long." }
-$address = [Runtime.InteropServices.Marshal]::AllocHGlobal(110)
-for ($i = 0; $i -lt 110; $i++) { [Runtime.InteropServices.Marshal]::WriteByte($address, $i, 0) }
-[Runtime.InteropServices.Marshal]::WriteInt16($address, 0, [int16]1)
-[Runtime.InteropServices.Marshal]::Copy($pathBytes, 0, [IntPtr]::Add($address, 2), $pathBytes.Length)
-$socket = [ArchQmpSocket]::socket(1, 1, 0)
-if ([ArchQmpSocket]::connect($socket, $address, $pathBytes.Length + 3) -ne 0) {
-    throw "Could not connect to QEMU QMP (Winsock $([ArchQmpSocket]::WSAGetLastError()))."
+if (-not (Test-Path $qmpPortFile)) { throw "QEMU did not publish its localhost QMP port." }
+$qmpPort = [int](Get-Content -LiteralPath $qmpPortFile -Raw)
+$client = $null
+$connectError = "connection timed out"
+for ($attempt = 0; $attempt -lt 15; $attempt++) {
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $client.Connect([System.Net.IPAddress]::Loopback, $qmpPort)
+        break
+    }
+    catch {
+        $connectError = $_.Exception.Message
+        $client.Dispose()
+        $client = $null
+        if (-not (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue)) { break }
+        Start-Sleep -Seconds 1
+    }
 }
+if (-not $client -or -not $client.Connected) {
+    throw "Could not connect to QEMU QMP on 127.0.0.1:$qmpPort ($connectError). Check $DataRoot\logs\qemu.log."
+}
+$stream = $client.GetStream()
+$reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8)
+$writer = [System.IO.StreamWriter]::new($stream, [System.Text.Encoding]::UTF8)
+$writer.NewLine = "`r`n"
+$writer.AutoFlush = $true
 
 function Read-QmpLine {
-    $line = New-Object System.Text.StringBuilder
-    $byte = New-Object byte[] 1
-    do {
-        $count = [ArchQmpSocket]::recv($socket, $byte, 1, 0)
-        if ($count -ne 1) { throw "QEMU QMP disconnected." }
-        $character = [char]$byte[0]
-        if ($character -ne "`n") { [void]$line.Append($character) }
-    } while ($character -ne "`n")
-    return $line.ToString()
+    $line = $reader.ReadLine()
+    if ($null -eq $line) { throw "QEMU QMP disconnected." }
+    return $line
 }
 
 function Send-Qmp {
     param([hashtable]$Message)
     $json = $Message | ConvertTo-Json -Depth 8 -Compress
-    $bytes = [Text.Encoding]::UTF8.GetBytes($json + "`r`n")
-    if ([ArchQmpSocket]::send($socket, $bytes, $bytes.Length, 0) -ne $bytes.Length) {
-        throw "Could not send QEMU QMP request."
-    }
+    $writer.WriteLine($json)
     do { $reply = Read-QmpLine } while ($reply -match '"event"')
     if ($reply -match '"error"') { throw "QEMU QMP error: $reply" }
 }
