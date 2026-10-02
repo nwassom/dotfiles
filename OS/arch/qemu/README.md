@@ -5,8 +5,9 @@ clones this repository and runs its QEMU Ansible playbook locally. No
 WSL, SSH, or host-side Ansible is required.
 
 The guest uses the pinned WINQ-EMU runtime, an Arch Linux Archive snapshot, a
-QCOW2 disk, and QEMU virtio-GPU with VirGL. It installs Hyprland, Ghostty,
-Mesa, and graphics diagnostics; no dock, theme, or workstation stack.
+QCOW2 disk, and QEMU virtio-GPU with VirGL. It installs Hyprland, Ghostty, Foot
+as a Wayland terminal fallback, fonts, Mesa, and graphics diagnostics; no dock,
+theme, or workstation stack.
 
 ## Install
 
@@ -42,10 +43,10 @@ On first install, confirm the wipe of the newly-created VM disk. Keep the QEMU
 window open while Arch boots, clones the selected revision, and runs Ansible;
 Hyprland starts after provisioning. Re-running the command starts the VM.
 
-The guest autologs into Hyprland and opens Ghostty. Use `Super+Return` for
-another terminal, `Super+1/2/3` to switch workspaces, and `Super+Shift+Q` to
-exit Hyprland. Installer and QEMU logs are under the configured data root's
-`logs` directory.
+The guest autologs into Hyprland and opens Foot. Use `Super+Return` for another
+Foot terminal, `Super+Shift+Return` to test Ghostty, `Super+1/2/3` to switch
+workspaces, and `Super+Shift+Q` to exit Hyprland. Installer and QEMU logs are
+under the configured data root's `logs` directory.
 
 ## Check graphics
 

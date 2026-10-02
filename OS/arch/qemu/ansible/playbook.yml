@@ -13,11 +13,13 @@
       ansible.builtin.package:
         name:
           - dbus
+          - foot
           - ghostty
           - glmark2
           - hyprland
           - mesa
           - mesa-utils
+          - ttf-dejavu
           - vulkan-tools
           - vulkan-virtio
           - wayland-utils
