@@ -73,10 +73,7 @@ $writer.AutoFlush = $true
 
 function Read-QmpLine {
     $line = $reader.ReadLine()
-    if ($null -eq $line) {
-        $client.Dispose()
-        throw "QEMU QMP disconnected."
-    }
+    if ($null -eq $line) { throw "QEMU QMP disconnected." }
     return $line
 }
 
@@ -85,12 +82,10 @@ function Send-Qmp {
     $json = $Message | ConvertTo-Json -Depth 8 -Compress
     $writer.WriteLine($json)
     do { $reply = Read-QmpLine } while ($reply -match '"event"')
-    if ($reply -match '"error"') {
-        $client.Dispose()
-        throw "QEMU QMP error: $reply"
-    }
+    if ($reply -match '"error"') { throw "QEMU QMP error: $reply" }
 }
 
+try {
 [void](Read-QmpLine) # greeting
 Send-Qmp @{ execute = "qmp_capabilities" }
 
@@ -172,4 +167,7 @@ if (-not (Test-Path $log) -or (Get-Content $log -Raw) -notmatch "Initial Arch ba
 Write-Host "Arch install finished. Guest install log: $log"
 if (Test-Path $log) { Get-Content $log -Tail 80 }
 Set-Content -Path (Join-Path $DataRoot "vm\install-complete") -Value "base-installed" -NoNewline
-$client.Dispose()
+}
+finally {
+    if ($client) { $client.Dispose() }
+}
