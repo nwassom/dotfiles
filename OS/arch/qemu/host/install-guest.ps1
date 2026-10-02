@@ -22,14 +22,22 @@ if ([System.IO.Path]::GetPathRoot($DataRoot).Substring(0, 1) -eq "C") {
 
 $qmpPath = Join-Path $DataRoot "tmp\qmp.sock"
 $log = Join-Path $DataRoot "logs\serial.log"
-if (-not (Test-Path $qmpPath)) { throw "QEMU is not running with the Arch ISO; start launch.ps1 -Installer first." }
-
-$qemu = Get-Process qemu-system-x86_64w -ErrorAction Stop | Select-Object -First 1
+$qemu = Get-Process qemu-system-x86_64w -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $qemu) { throw "QEMU is not running; start launch.ps1 -Installer first." }
 $qemuInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$($qemu.Id)"
 if ($qemuInfo.CommandLine -notmatch '-cdrom\s+.*archlinux-2026\.10\.01-x86_64\.iso' -or
     $qemuInfo.CommandLine -notmatch '-boot\s+order=d') {
     throw "The active QEMU process is not booted into this project's Arch ISO installer."
 }
+
+$qmpDeadline = (Get-Date).AddSeconds(60)
+while (-not (Test-Path $qmpPath) -and (Get-Date) -lt $qmpDeadline -and (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue)) {
+    Start-Sleep -Seconds 1
+}
+if (-not (Test-Path $qmpPath)) {
+    throw "QEMU did not create its QMP socket at $qmpPath. Check $DataRoot\logs\qemu.log."
+}
+
 Write-Host "Waiting $InstallerBootSeconds seconds for the Arch ISO live shell (QEMU PID $($qemu.Id))."
 Start-Sleep -Seconds $InstallerBootSeconds
 
