@@ -56,7 +56,7 @@ public static class ArchQmpSocket {
     [DllImport("Ws2_32.dll")] public static extern int WSAGetLastError();
 }
 "@
-Add-Type -TypeDefinition $source
+if (-not ("ArchQmpSocket" -as [type])) { Add-Type -TypeDefinition $source }
 
 $wsa = [Runtime.InteropServices.Marshal]::AllocHGlobal(512)
 [void][ArchQmpSocket]::WSAStartup(514, $wsa)
@@ -117,6 +117,9 @@ function Send-QmpText {
         elseif ($key -eq "|") {
             $keys = @(@{ type = "qcode"; data = "shift" }, @{ type = "qcode"; data = "backslash" })
         }
+        elseif ($key -eq "&") {
+            $keys = @(@{ type = "qcode"; data = "shift" }, @{ type = "qcode"; data = "7" })
+        }
         elseif ($keyMap.ContainsKey($key)) {
             $keys = @(@{ type = "qcode"; data = $keyMap[$key] })
         }
@@ -129,6 +132,7 @@ function Send-QmpText {
     Send-Qmp @{ execute = "send-key"; arguments = @{ keys = @(@{ type = "qcode"; data = "ret" }); "hold-time" = 35 } }
 }
 
+Send-Qmp @{ execute = "send-key"; arguments = @{ keys = @(@{ type = "qcode"; data = "ctrl" }, @{ type = "qcode"; data = "u" }); "hold-time" = 35 } }
 Send-QmpText "modprobe qemu_fw_cfg && bash /sys/firmware/qemu_fw_cfg/by_name/install-arch/raw"
 $confirmation = "Type WIPE-ARCH-GUEST"
 $installDeadline = (Get-Date).AddSeconds($InstallTimeoutSeconds)
