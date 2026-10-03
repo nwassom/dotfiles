@@ -2,17 +2,16 @@
 set -Eeuo pipefail
 
 modprobe qemu_fw_cfg 2>/dev/null || true
-settings=/sys/firmware/qemu_fw_cfg/by_name/guest-settings/raw
 refresh=/sys/firmware/qemu_fw_cfg/by_name/provision-refresh/raw
 commit_file=/etc/arch-hyprland-dotfiles.commit
 if [[ -s "$commit_file" && ! -r "$refresh" ]]; then exit 0; fi
-[[ -r "$settings" ]] || { echo "QEMU did not provide guest settings." >&2; exit 1; }
-source "$settings"
 
 repo=$(</etc/arch-hyprland-dotfiles-repo)
-ref=${ARCH_QEMU_DOTFILES_REF:?Missing ARCH_QEMU_DOTFILES_REF}
-user=${ARCH_QEMU_GUEST_USER:?Missing ARCH_QEMU_GUEST_USER}
-scale=${ARCH_HYPRLAND_SCALE:?Missing ARCH_HYPRLAND_SCALE}
+user=$(</etc/arch-hyprland-user)
+ref_file=/sys/firmware/qemu_fw_cfg/by_name/qemu-dotfiles-ref/raw
+scale_file=/sys/firmware/qemu_fw_cfg/by_name/qemu-hyprland-scale/raw
+ref=$(if [[ -r "$ref_file" ]]; then cat "$ref_file"; else cat /etc/arch-hyprland-dotfiles-ref; fi)
+scale=$(if [[ -r "$scale_file" ]]; then cat "$scale_file"; else cat /etc/arch-hyprland-scale; fi)
 target="/home/$user/dotfiles"
 
 for _ in {1..60}; do

@@ -2,10 +2,11 @@
 param(
     [Parameter(Mandatory)][string]$DataRoot,
     [Parameter(Mandatory)][string]$VmName,
-    [Parameter(Mandatory)][string]$GuestSettingsFile,
     [switch]$Installer,
     [string]$BootstrapScript,
     [string]$ReconfigureFile,
+    [string]$DotfilesRef = "main",
+    [string]$HyprlandScale = "1.5",
     [ValidateRange(2, 16)][int]$Cpus = 8,
     [ValidateRange(4096, 16384)][int]$MemoryMiB = 6144,
     [ValidateRange(1, 8)][int]$GPUHostMemoryGiB = 4,
@@ -21,7 +22,7 @@ $runtime = Join-Path $DataRoot "runtime"
 $provisioner = Join-Path $PSScriptRoot "..\guest\provision-arch-hyprland.sh"
 $qemu = Get-ChildItem $runtime -Filter "qemu-system-x86_64w.exe" -Recurse | Select-Object -First 1
 if (-not $qemu) { throw "Run host\install.ps1 first; WINQ-EMU was not found under $runtime." }
-if (-not (Test-Path $provisioner) -or -not (Test-Path $GuestSettingsFile)) { throw "Guest settings or provisioner file is missing." }
+if (-not (Test-Path $provisioner)) { throw "Guest provisioner file is missing." }
 if ($Installer -and -not (Test-Path $BootstrapScript)) { throw "Installer mode requires guest\install-arch.sh." }
 
 $disk = Join-Path $DataRoot "vm\$($VmName).qcow2"
@@ -81,7 +82,8 @@ $arguments = @(
 if ($Fullscreen) { $arguments += "-full-screen" }
 $arguments += @(
     "-fw_cfg", "name=provision-arch-hyprland,file=$provisioner",
-    "-fw_cfg", "name=guest-settings,file=$GuestSettingsFile"
+    "-fw_cfg", "name=qemu-dotfiles-ref,string=$DotfilesRef",
+    "-fw_cfg", "name=qemu-hyprland-scale,string=$HyprlandScale"
 )
 if ($ReconfigureFile) { $arguments += @("-fw_cfg", "name=provision-refresh,file=$ReconfigureFile") }
 

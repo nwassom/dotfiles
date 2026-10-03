@@ -44,6 +44,12 @@ QCOW2 disk, installs Arch, and provisions it on first boot. Confirm the initial
 disk format when prompted. Existing VM disks are preserved. After setup, use
 the generated shortcut; no PowerShell window is needed for routine launches.
 
+PowerShell validates `.env`, prepends the settings to a temporary copy of
+`guest/install-arch.sh`, and passes that bootstrap to the live ISO. The guest
+validates every required setting before touching `/dev/vda`, then installs base
+Arch. First-boot Ansible installs Hyprland and Ghostty. This keeps the previously
+tested custom installer instead of adding a second installer-profile format.
+
 ## Use and reconfigure
 
 Click `<VM name>.lnk`, or run `host\start.ps1`. The guest autologs into a TTY.

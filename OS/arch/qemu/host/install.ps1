@@ -8,8 +8,9 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
 $settings = Get-QemuSettings -EnvPath (Join-Path $repoRoot ".env")
 $complete = Join-Path $settings.DataRoot "vm\install-complete"
-$bootstrap = (Resolve-Path (Join-Path $PSScriptRoot "..\guest\install-arch.sh")).Path
+$bootstrapTemplate = (Resolve-Path (Join-Path $PSScriptRoot "..\guest\install-arch.sh")).Path
 $guestSettings = Join-Path $settings.DataRoot "tmp\guest-settings"
+$bootstrap = Join-Path $settings.DataRoot "tmp\install-arch-bootstrap.sh"
 
 & (Join-Path $PSScriptRoot "setup.ps1") `
     -DataRoot $settings.DataRoot `
@@ -18,17 +19,20 @@ $guestSettings = Join-Path $settings.DataRoot "tmp\guest-settings"
 
 if (-not (Test-Path $complete)) {
     Write-QemuGuestSettings -Settings $settings -Path $guestSettings
+    $installerText = [System.IO.File]::ReadAllText($guestSettings) + [System.IO.File]::ReadAllText($bootstrapTemplate)
+    [System.IO.File]::WriteAllText($bootstrap, $installerText, [System.Text.UTF8Encoding]::new($false))
 
     & (Join-Path $PSScriptRoot "launch.ps1") `
         -DataRoot $settings.DataRoot `
         -VmName $settings.VmName `
-        -GuestSettingsFile $guestSettings `
         -Installer `
         -BootstrapScript $bootstrap `
         -Cpus $settings.Cpus `
         -MemoryMiB $settings.MemoryMiB `
         -GPUHostMemoryGiB $settings.GPUHostMemoryGiB `
         -VideoMode $settings.VideoMode `
+        -DotfilesRef $settings.DotfilesRef `
+        -HyprlandScale $settings.Scale `
         -Fullscreen $settings.Fullscreen
 
     $isoName = (Get-Content (Join-Path $PSScriptRoot "..\versions.json") -Raw | ConvertFrom-Json).arch.iso

@@ -2,11 +2,14 @@
 set -Eeuo pipefail
 
 DISK=/dev/vda
-ARCH_USER=${ARCH_USER:-nwassom}
-ARCH_HOSTNAME=${ARCH_HOSTNAME:-arch-hyprland}
-ARCH_TIMEZONE=${ARCH_TIMEZONE:-America/New_York}
 ARCH_REPO_SNAPSHOT=${ARCH_REPO_SNAPSHOT:-2026/10/01}
-ARCH_DISK_GIB=${ARCH_DISK_GIB:-64}
+ARCH_QEMU_VM_NAME=${ARCH_QEMU_VM_NAME:?Missing ARCH_QEMU_VM_NAME in installer payload}
+ARCH_USER=${ARCH_QEMU_GUEST_USER:?Missing ARCH_QEMU_GUEST_USER in installer payload}
+ARCH_HOSTNAME=${ARCH_QEMU_HOSTNAME:?Missing ARCH_QEMU_HOSTNAME in installer payload}
+ARCH_TIMEZONE=${ARCH_QEMU_TIMEZONE:?Missing ARCH_QEMU_TIMEZONE in installer payload}
+ARCH_DISK_GIB=${ARCH_QEMU_DISK_GIB:?Missing ARCH_QEMU_DISK_GIB in installer payload}
+ARCH_DOTFILES_REF=${ARCH_QEMU_DOTFILES_REF:?Missing ARCH_QEMU_DOTFILES_REF in installer payload}
+ARCH_HYPRLAND_SCALE=${ARCH_HYPRLAND_SCALE:?Missing ARCH_HYPRLAND_SCALE in installer payload}
 
 if [[ ${EUID} -ne 0 ]]; then
     echo "Run this installer as root from the Arch ISO." >&2
@@ -16,22 +19,10 @@ fi
 exec > >(tee -a /dev/ttyS0) 2>&1
 
 modprobe qemu_fw_cfg
-settings=/sys/firmware/qemu_fw_cfg/by_name/guest-settings/raw
-if [[ ! -r "$settings" ]]; then
-    echo "QEMU did not provide guest settings." >&2
-    exit 1
-fi
 if [[ ! -r /sys/firmware/qemu_fw_cfg/by_name/provision-arch-hyprland/raw ]]; then
     echo "QEMU did not provide the guest provisioner." >&2
     exit 1
 fi
-source "$settings"
-ARCH_USER=${ARCH_QEMU_GUEST_USER:?Missing ARCH_QEMU_GUEST_USER}
-ARCH_HOSTNAME=${ARCH_QEMU_HOSTNAME:?Missing ARCH_QEMU_HOSTNAME}
-ARCH_TIMEZONE=${ARCH_QEMU_TIMEZONE:?Missing ARCH_QEMU_TIMEZONE}
-ARCH_DISK_GIB=${ARCH_QEMU_DISK_GIB:?Missing ARCH_QEMU_DISK_GIB}
-ARCH_DOTFILES_REF=${ARCH_QEMU_DOTFILES_REF:?Missing ARCH_QEMU_DOTFILES_REF}
-ARCH_HYPRLAND_SCALE=${ARCH_HYPRLAND_SCALE:?Missing ARCH_HYPRLAND_SCALE}
 
 if [[ ! "$ARCH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
     echo "Invalid ARCH_USER." >&2
