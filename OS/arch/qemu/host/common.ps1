@@ -40,7 +40,7 @@ function Get-QemuSettings {
 
     $shortcut = if ($values.ContainsKey("ARCH_QEMU_SHORTCUT") -and $values["ARCH_QEMU_SHORTCUT"]) { $values["ARCH_QEMU_SHORTCUT"].ToLowerInvariant() } else { "desktop" }
     if ($shortcut -notin @("desktop", "start-menu", "none")) { throw "ARCH_QEMU_SHORTCUT must be desktop, start-menu, or none." }
-    $videoMode = if ($values.ContainsKey("ARCH_QEMU_VIDEO_MODE") -and $values["ARCH_QEMU_VIDEO_MODE"]) { $values["ARCH_QEMU_VIDEO_MODE"].ToLowerInvariant() } else { "virgl-core" }
+    $videoMode = if ($values.ContainsKey("ARCH_QEMU_VIDEO_MODE") -and $values["ARCH_QEMU_VIDEO_MODE"]) { $values["ARCH_QEMU_VIDEO_MODE"].ToLowerInvariant() } else { "virgl" }
     if ($videoMode -notin @("virgl", "virgl-core", "software")) { throw "ARCH_QEMU_VIDEO_MODE must be virgl, virgl-core, or software." }
 
     $cpuText = if ($values.ContainsKey("ARCH_QEMU_CPUS") -and $values["ARCH_QEMU_CPUS"]) { $values["ARCH_QEMU_CPUS"] } else { "8" }
