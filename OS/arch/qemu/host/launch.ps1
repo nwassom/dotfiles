@@ -9,6 +9,7 @@ param(
     [ValidateRange(2, 16)][int]$Cpus = 8,
     [ValidateRange(4096, 16384)][int]$MemoryMiB = 6144,
     [ValidateRange(1, 8)][int]$GPUHostMemoryGiB = 4,
+    [ValidateSet("virgl", "virgl-core", "software")][string]$VideoMode = "virgl",
     [bool]$Fullscreen = $true
 )
 
@@ -51,13 +52,19 @@ $qmpPort = $portListener.LocalEndpoint.Port
 $portListener.Stop()
 [System.IO.File]::WriteAllText($qmpPortFile, "$qmpPort", [System.Text.UTF8Encoding]::new($false))
 
+$videoDevice = if ($VideoMode -eq "software") { "virtio-vga" } else { "virtio-vga-gl,blob=on,hostmem=${GPUHostMemoryGiB}G" }
+$glMode = switch ($VideoMode) {
+    "virgl" { "on" }
+    "virgl-core" { "core" }
+    "software" { "off" }
+}
 $arguments = @(
     "-machine", "q35,accel=whpx",
     "-cpu", "host",
     "-smp", "$Cpus",
     "-m", "${MemoryMiB}M",
-    "-device", "virtio-vga-gl,blob=on,hostmem=${GPUHostMemoryGiB}G",
-    "-display", "sdl,gl=on,show-cursor=off,window-close=off",
+    "-device", $videoDevice,
+    "-display", "sdl,gl=$glMode,show-cursor=off,window-close=off",
     "-drive", "file=$disk,format=qcow2,if=virtio",
     "-device", "virtio-keyboard-pci",
     "-device", "virtio-tablet-pci",
@@ -92,7 +99,9 @@ else {
 $env:TEMP = $temp
 $env:TMP = $temp
 $env:TMPDIR = $temp
+if ($VideoMode -eq "software") { $env:SDL_RENDER_DRIVER = "software" }
+else { Remove-Item Env:SDL_RENDER_DRIVER -ErrorAction SilentlyContinue }
 $commandLine = ($arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }) -join ' '
-Write-Host "Starting $VmName with WHPX and virtio-GPU/VirGL."
+Write-Host "Starting $VmName with WHPX and $VideoMode graphics."
 $process = Start-Process -FilePath $qemu.FullName -ArgumentList $commandLine -WorkingDirectory $qemu.DirectoryName -PassThru
 Write-Host "$VmName QEMU PID: $($process.Id)"

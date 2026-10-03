@@ -28,6 +28,7 @@ if (-not (Test-Path $complete)) {
         -Cpus $settings.Cpus `
         -MemoryMiB $settings.MemoryMiB `
         -GPUHostMemoryGiB $settings.GPUHostMemoryGiB `
+        -VideoMode $settings.VideoMode `
         -Fullscreen $settings.Fullscreen
 
     $isoName = (Get-Content (Join-Path $PSScriptRoot "..\versions.json") -Raw | ConvertFrom-Json).arch.iso

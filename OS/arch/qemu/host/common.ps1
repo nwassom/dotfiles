@@ -40,6 +40,8 @@ function Get-QemuSettings {
 
     $shortcut = if ($values.ContainsKey("ARCH_QEMU_SHORTCUT") -and $values["ARCH_QEMU_SHORTCUT"]) { $values["ARCH_QEMU_SHORTCUT"].ToLowerInvariant() } else { "desktop" }
     if ($shortcut -notin @("desktop", "start-menu", "none")) { throw "ARCH_QEMU_SHORTCUT must be desktop, start-menu, or none." }
+    $videoMode = if ($values.ContainsKey("ARCH_QEMU_VIDEO_MODE") -and $values["ARCH_QEMU_VIDEO_MODE"]) { $values["ARCH_QEMU_VIDEO_MODE"].ToLowerInvariant() } else { "virgl-core" }
+    if ($videoMode -notin @("virgl", "virgl-core", "software")) { throw "ARCH_QEMU_VIDEO_MODE must be virgl, virgl-core, or software." }
 
     $cpuText = if ($values.ContainsKey("ARCH_QEMU_CPUS") -and $values["ARCH_QEMU_CPUS"]) { $values["ARCH_QEMU_CPUS"] } else { "8" }
     $memoryText = if ($values.ContainsKey("ARCH_QEMU_MEMORY_MIB") -and $values["ARCH_QEMU_MEMORY_MIB"]) { $values["ARCH_QEMU_MEMORY_MIB"] } else { "6144" }
@@ -79,6 +81,7 @@ function Get-QemuSettings {
         MemoryMiB = $values.ARCH_QEMU_MEMORY_MIB
         DiskGiB = $values.ARCH_QEMU_DISK_GIB
         GPUHostMemoryGiB = $values.ARCH_QEMU_GPU_HOSTMEM_GIB
+        VideoMode = $videoMode
         Fullscreen = $parsedFullscreen
         Scale = $scale
         GuestUser = $guestUser

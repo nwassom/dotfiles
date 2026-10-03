@@ -29,6 +29,7 @@ $launch = @{
     Cpus = $settings.Cpus
     MemoryMiB = $settings.MemoryMiB
     GPUHostMemoryGiB = $settings.GPUHostMemoryGiB
+    VideoMode = $settings.VideoMode
     Fullscreen = $settings.Fullscreen
 }
 if ($Reconfigure) { $launch.ReconfigureFile = $refreshFile }

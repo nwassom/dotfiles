@@ -20,10 +20,12 @@ ARCH_QEMU_SHORTCUT=desktop
 That stores the VM under `C:\VMs\ArchHyprland`. Shortcut choices are `desktop`,
 `start-menu`, or `none`. C: and paths with spaces are supported.
 
-The remaining settings tune CPU count, RAM, disk size, GPU host memory,
-fullscreen, guest username/timezone, dotfiles revision, and Hyprland display
-scale. The default scale is `1.5`, suitable as a starting point for 4K. Values
-are local to each device; `.env` is ignored by Git.
+The remaining settings tune CPU count, RAM, disk size, GPU host memory, video
+mode, fullscreen, guest username/timezone, dotfiles revision, and Hyprland
+display scale. Video modes are `virgl-core` (default), `virgl`, and `software`;
+the first two use VirGL; `software` trades GPU acceleration for compatibility.
+The default scale is `1.5`, suitable as a starting point for 4K. Values are
+local to each device; `.env` is ignored by Git.
 
 ## One-time install
 
