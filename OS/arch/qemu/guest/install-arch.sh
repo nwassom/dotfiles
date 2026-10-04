@@ -70,6 +70,7 @@ pacstrap -K /mnt \
     grub \
     sudo \
     networkmanager \
+    greetd \
     ansible \
     git \
     python \
@@ -106,19 +107,11 @@ hwclock --systohc
 
 useradd --create-home --groups wheel,video,audio --shell /bin/bash "$ARCH_USER"
 passwd --lock root
-passwd --lock "$ARCH_USER"
 
 install -d -o root -g root -m 0755 /etc/sudoers.d
 printf '%%wheel ALL=(ALL:ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/10-wheel
 chmod 0440 /etc/sudoers.d/10-wheel
 visudo -cf /etc/sudoers.d/10-wheel
-
-install -d -o root -g root -m 0755 /etc/systemd/system/getty@tty1.service.d
-cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf <<EOF
-[Service]
-ExecStart=
-ExecStart=-/usr/bin/agetty --autologin $ARCH_USER --noclear %I xterm-256color
-EOF
 
 cat > "/home/$ARCH_USER/.bash_profile" <<'EOF'
 [[ -f ~/.bashrc ]] && . ~/.bashrc
@@ -135,7 +128,7 @@ cat > /etc/systemd/system/arch-hyprland-provision.service <<'EOF'
 Description=Clone dotfiles and provision Hyprland
 Wants=network-online.target
 After=NetworkManager.service network-online.target
-Before=getty@tty1.service
+Before=greetd.service getty@tty1.service
 
 [Service]
 Type=oneshot
@@ -146,8 +139,21 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-systemctl enable NetworkManager NetworkManager-wait-online.service arch-hyprland-provision.service getty@tty1.service
+install -d -o root -g root -m 0755 /etc/systemd/system/greetd.service.d
+cat > /etc/systemd/system/greetd.service.d/arch-hyprland.conf <<'EOF'
+[Unit]
+Requires=arch-hyprland-provision.service
+After=arch-hyprland-provision.service
+EOF
+
+systemctl enable NetworkManager NetworkManager-wait-online.service arch-hyprland-provision.service greetd.service
+systemctl set-default graphical.target
 CHROOT
+
+printf 'Set the guest login password in the QEMU window (input is hidden).\n' > /dev/tty
+until arch-chroot /mnt passwd "$ARCH_USER" > /dev/tty 2>&1 < /dev/tty; do
+    printf 'Password was not set; try again in the QEMU window.\n' > /dev/tty
+done
 
 arch-chroot /mnt grub-install --target=i386-pc --recheck "$DISK"
 arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([switch]$Reset)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
@@ -7,6 +7,17 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
 $settings = Get-QemuSettings -EnvPath (Join-Path $repoRoot ".env")
+$vmDisk = Join-Path $settings.DataRoot "vm\$($settings.VmName).qcow2"
+if ($Reset) {
+    $running = Get-CimInstance Win32_Process -Filter "Name='qemu-system-x86_64w.exe'" |
+        Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($vmDisk, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+        Select-Object -First 1
+    if ($running) { throw "$($settings.VmName) is running. Shut it down before resetting its disk." }
+    foreach ($path in @("vm", "logs", "tmp")) {
+        Remove-Item -LiteralPath (Join-Path $settings.DataRoot $path) -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "Reset the $($settings.VmName) guest disk and logs; kept the QEMU runtime and Arch ISO."
+}
 $complete = Join-Path $settings.DataRoot "vm\install-complete"
 $bootstrapTemplate = (Resolve-Path (Join-Path $PSScriptRoot "..\guest\install-arch.sh")).Path
 $guestSettings = Join-Path $settings.DataRoot "tmp\guest-settings"
@@ -50,7 +61,8 @@ if (-not (Test-Path $complete)) {
     & (Join-Path $PSScriptRoot "install-guest.ps1") `
         -DataRoot $settings.DataRoot `
         -VmName $settings.VmName `
-        -IsoName $isoName
+        -IsoName $isoName `
+        -ConfirmWipe:$Reset
 }
 
 $shortcutRoot = switch ($settings.Shortcut) {

@@ -152,6 +152,7 @@ if (-not (Test-Path $log) -or (Get-Content $log -Raw) -notmatch "Initial Arch ba
     }
     Write-Host "Confirming format of the isolated, newly-created QEMU disk /dev/vda."
     Send-QmpText "WIPE-ARCH-GUEST"
+    Write-Host "Set and confirm the guest password in the QEMU window when prompted; typing is hidden and the password is not saved in .env or the host logs."
 }
 
 while ((Get-Date) -lt $installDeadline -and (Get-Process -Id $qemu.Id -ErrorAction SilentlyContinue)) {
