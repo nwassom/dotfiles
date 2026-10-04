@@ -18,6 +18,17 @@ $bootstrap = Join-Path $settings.DataRoot "tmp\install-arch-bootstrap.sh"
     -DiskGiB $settings.DiskGiB
 
 if (-not (Test-Path $complete)) {
+    $disk = Join-Path $settings.DataRoot "vm\$($settings.VmName).qcow2"
+    $serialLog = Join-Path $settings.DataRoot "logs\serial.log"
+    if ((Test-Path $disk) -and (Test-Path $serialLog) -and
+        (Get-Item -LiteralPath $disk).Length -gt 1GB -and
+        (Get-Content -LiteralPath $serialLog -Raw) -match "Initial Arch base guest installed") {
+        [System.IO.File]::WriteAllText($complete, "base-installed", [System.Text.UTF8Encoding]::new($false))
+        Write-Host "Recovered the completed Arch install marker from the guest serial log."
+    }
+}
+
+if (-not (Test-Path $complete)) {
     Write-QemuGuestSettings -Settings $settings -Path $guestSettings
     $installerText = [System.IO.File]::ReadAllText($guestSettings) + [System.IO.File]::ReadAllText($bootstrapTemplate)
     [System.IO.File]::WriteAllText($bootstrap, $installerText, [System.Text.UTF8Encoding]::new($false))
