@@ -19,6 +19,7 @@
           - mesa
           - mesa-utils
           - ttf-dejavu
+          - vulkan-virtio
           - xorg-xwayland
         state: present
 

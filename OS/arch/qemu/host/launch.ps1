@@ -53,7 +53,7 @@ $qmpPort = $portListener.LocalEndpoint.Port
 $portListener.Stop()
 [System.IO.File]::WriteAllText($qmpPortFile, "$qmpPort", [System.Text.UTF8Encoding]::new($false))
 
-$videoDevice = if ($VideoMode -eq "software") { "virtio-vga" } else { "virtio-vga-gl,blob=on,hostmem=${GPUHostMemoryGiB}G" }
+$videoDevice = if ($VideoMode -eq "software") { "virtio-vga" } else { "virtio-vga-gl,blob=on,hostmem=${GPUHostMemoryGiB}G,venus=on" }
 $glMode = switch ($VideoMode) {
     "virgl" { "on" }
     "virgl-core" { "core" }

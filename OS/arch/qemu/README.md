@@ -1,6 +1,7 @@
 # Named Arch + Hyprland QEMU VM
 
-This creates a persistent Arch VM on Windows using QEMU/WHPX and virtio-GPU/VirGL.
+This creates a persistent Arch VM on Windows using QEMU/WHPX and the POC-tested
+virtio-GPU/VirGL/Venus path.
 The first install runs Ansible once to install Hyprland, Ghostty, fonts, graphics
 support, and Foot as a fallback terminal. The VM boots to an Arch shell; run
 `Hyprland` when you want the graphical session.
